@@ -5,6 +5,7 @@
 #include <EEPROM.h>
 #include "SettingsManager.h"
 #include "ButtonManager.h"
+#include "MatrixDisplayManager.h"
 
 // ===============================================
 // CONFIGURATION & CONSTANTS
@@ -158,6 +159,7 @@ Adafruit_Protomatter matrix(
 RTC_DS3231 rtc;
 SettingsManager settings;
 ButtonManager buttons;
+MatrixDisplayManager display(&matrix, &settings);
 
 // Display Settings
 uint16_t textColors[BRIGHTNESS_LEVELS] = { 0x2104, 0x4208, 0x630C, 0x8410, 0xA514, 0xC618, 0xE71C, 0xEF5D, 0xF79E, 0xFFFF };
@@ -1870,9 +1872,8 @@ void initializeSystem() {
   }
   Serial.println("Matrix initialized successfully");
   
-  matrix.setTextWrap(false);
-  matrix.setTextColor(textColors[settings.getBrightnessIndex()]);
-  matrix.setTextSize(settings.getTextSize());
+  // Initialize display manager
+  display.begin();
   
   // Initialize RTC
   Wire.begin();
