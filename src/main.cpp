@@ -4,6 +4,7 @@
 #include <RTClib.h>
 #include <EEPROM.h>
 #include "SettingsManager.h"
+#include "ButtonManager.h"
 
 // ===============================================
 // CONFIGURATION & CONSTANTS
@@ -15,11 +16,6 @@ uint8_t addrPins[] = {23, 19, 5, 17};
 uint8_t clockPin   = 16;
 uint8_t latchPin   = 4;
 uint8_t oePin      = 15;
-
-// Button Pin Configuration
-#define PIN_BTN_UP     33
-#define PIN_BTN_DOWN   32
-#define PIN_BTN_ENTER  18
 
 // Matrix Display Settings
 #define MATRIX_WIDTH  128
@@ -69,11 +65,8 @@ uint8_t oePin      = 15;
 #define TRON_MAX_SPEED 200
 
 // Timing Constants
-#define DEBOUNCE_DELAY 15           // Reduced from 50ms for faster response
 #define MENU_DELAY 30               // Reduced from 50ms 
 #define CLOCK_UPDATE_DELAY 10
-#define BUTTON_REPEAT_DELAY 150     // Initial delay before repeat starts
-#define BUTTON_REPEAT_RATE 80       // Repeat rate when holding button
 
 // ===============================================
 // DATA STRUCTURES & ENUMS
@@ -154,16 +147,6 @@ struct TronTrail {
   bool active;
 };
 
-struct ButtonState {
-  uint8_t pin;
-  bool pressed, lastPhysical, justPressed, isRepeating;
-  uint32_t lastDebounce, pressStartTime, lastRepeat;
-  
-  ButtonState(uint8_t p) : pin(p), pressed(false), lastPhysical(false), 
-                          justPressed(false), isRepeating(false),
-                          lastDebounce(0), pressStartTime(0), lastRepeat(0) {}
-};
-
 // ===============================================
 // GLOBAL VARIABLES
 // ===============================================
@@ -174,6 +157,7 @@ Adafruit_Protomatter matrix(
   4, addrPins, clockPin, latchPin, oePin, true);
 RTC_DS3231 rtc;
 SettingsManager settings;
+ButtonManager buttons;
 
 // Display Settings
 uint16_t textColors[BRIGHTNESS_LEVELS] = { 0x2104, 0x4208, 0x630C, 0x8410, 0xA514, 0xC618, 0xE71C, 0xEF5D, 0xF79E, 0xFFFF };
@@ -207,11 +191,7 @@ const uint32_t BUTTON_LOCK_DURATION = 1000;  // 1 second lock after entering
 uint32_t lastEnterPress = 0;  // Track last ENTER button press
 const uint32_t ENTER_COOLDOWN = 300;  // 300ms cooldown between ENTER presses
 bool entryLockProcessed = false;  // Track if entry lock has been processed
-bool allowButtonRepeat = false;  // Flag to control whether button repeat is allowed
 char timeStr[16];
-
-// Input Handling
-ButtonState btnUp(PIN_BTN_UP), btnDown(PIN_BTN_DOWN), btnEnter(PIN_BTN_ENTER);
 
 // Effects
 Confetti confetti[NUM_CONFETTI];
@@ -477,67 +457,6 @@ uint16_t getClockColor() {
     default:
       return applyBrightness(matrix.color565(255, 255, 255));
   }
-}
-
-// ===============================================
-// BUTTON HANDLING
-// ===============================================
-
-/**
- * Update button state with debouncing and repeat functionality
- */
-void updateButton(ButtonState &button) {
-  bool currentReading = digitalRead(button.pin) == LOW;
-  uint32_t currentTime = millis();
-  
-  // Handle physical state changes
-  if (currentReading != button.lastPhysical) {
-    button.lastDebounce = currentTime;
-    button.lastPhysical = currentReading;
-  }
-  
-  // Process debounced state
-  if ((currentTime - button.lastDebounce) > DEBOUNCE_DELAY) {
-    bool previousPressed = button.pressed;
-    button.pressed = currentReading;
-    
-    if (button.pressed && !previousPressed) {
-      // Button just pressed
-      button.justPressed = true;
-      button.pressStartTime = currentTime;
-      button.lastRepeat = currentTime;
-      button.isRepeating = false;
-    } else if (!button.pressed && previousPressed) {
-      // Button just released
-      button.justPressed = false;
-      button.isRepeating = false;
-    } else if (button.pressed && previousPressed) {
-      // Button held down - check for repeat (only if repeat is allowed)
-      if (allowButtonRepeat && !button.isRepeating && (currentTime - button.pressStartTime) > BUTTON_REPEAT_DELAY) {
-        button.isRepeating = true;
-        button.lastRepeat = currentTime;
-        button.justPressed = true; // Trigger repeat
-      } else if (allowButtonRepeat && button.isRepeating && (currentTime - button.lastRepeat) > BUTTON_REPEAT_RATE) {
-        button.lastRepeat = currentTime;
-        button.justPressed = true; // Trigger repeat
-      } else {
-        button.justPressed = false;
-      }
-    } else {
-      button.justPressed = false;
-    }
-  } else {
-    button.justPressed = false;
-  }
-}
-
-/**
- * Update all button states
- */
-void updateAllButtons() {
-  updateButton(btnUp);
-  updateButton(btnDown);
-  updateButton(btnEnter);
 }
 
 // ===============================================
@@ -1442,13 +1361,13 @@ void handleMenuEntry() {
   
   if (appState == SHOW_TIME) {
     if (blockMenuReentry) {
-      if (!btnEnter.pressed) blockMenuReentry = false;
+      if (!buttons.isEnterPressed()) blockMenuReentry = false;
     } else {
-      if (btnEnter.pressed && !wasPressed) {
+      if (buttons.isEnterPressed() && !wasPressed) {
         enterPressTime = millis();
         wasPressed = true;
       }
-      if (!btnEnter.pressed && wasPressed) {
+      if (!buttons.isEnterPressed() && wasPressed) {
         if (millis() - enterPressTime < 1000) {
           appState = MENU;
           menuIndex = 0;
@@ -1493,13 +1412,13 @@ void displayMainMenu() {
  * Handle main menu navigation
  */
 void handleMainMenuInput() {
-  if (btnDown.justPressed) {
+  if (buttons.isDownJustPressed()) {
     menuIndex = (menuIndex + 1) % MENU_ITEMS;
   }
-  if (btnUp.justPressed) {
+  if (buttons.isUpJustPressed()) {
     menuIndex = (menuIndex - 1 + MENU_ITEMS) % MENU_ITEMS;
   }
-  if (btnEnter.justPressed && !btnEnter.isRepeating) {
+  if (buttons.isEnterJustPressed() && !buttons.isEnterRepeating()) {
     switch (menuIndex) {
       case 0: 
         appState = EDIT_TEXT_SIZE; 
@@ -1589,13 +1508,13 @@ void displayEffectsMenu() {
  * Handle effects menu input
  */
 void handleEffectsMenuInput() {
-  if (btnDown.justPressed) {
+  if (buttons.isDownJustPressed()) {
     effectMenuIndex = (effectMenuIndex + 1) % EFFECT_OPTIONS;
   }
-  if (btnUp.justPressed) {
+  if (buttons.isUpJustPressed()) {
     effectMenuIndex = (effectMenuIndex - 1 + EFFECT_OPTIONS) % EFFECT_OPTIONS;
   }
-  if (btnEnter.justPressed && !btnEnter.isRepeating) {
+  if (buttons.isEnterJustPressed() && !buttons.isEnterRepeating()) {
     settings.setEffectMode((EffectMode)effectMenuIndex);
     settings.saveSettings();  // Save the new effect mode
     appState = MENU;
@@ -1617,15 +1536,15 @@ void displayTextSizeMenu() {
 void handleTextSizeInput() {
   bool settingsChanged = false;
   
-  if (btnUp.justPressed && settings.getTextSize() < TEXT_SIZE_MAX) {
+  if (buttons.isUpJustPressed() && settings.getTextSize() < TEXT_SIZE_MAX) {
     settings.setTextSize(settings.getTextSize() + 1);
     settingsChanged = true;
   }
-  if (btnDown.justPressed && settings.getTextSize() > TEXT_SIZE_MIN) {
+  if (buttons.isDownJustPressed() && settings.getTextSize() > TEXT_SIZE_MIN) {
     settings.setTextSize(settings.getTextSize() - 1);
     settingsChanged = true;
   }
-  if (btnEnter.justPressed && !btnEnter.isRepeating) {
+  if (buttons.isEnterJustPressed() && !buttons.isEnterRepeating()) {
     appState = MENU;
   }
   
@@ -1680,15 +1599,15 @@ void displayClockColorMenu() {
 void handleBrightnessInput() {
   bool settingsChanged = false;
   
-  if (btnUp.justPressed && settings.getBrightnessIndex() < BRIGHTNESS_LEVELS - 1) {
+  if (buttons.isUpJustPressed() && settings.getBrightnessIndex() < BRIGHTNESS_LEVELS - 1) {
     settings.setBrightnessIndex(settings.getBrightnessIndex() + 1);
     settingsChanged = true;
   }
-  if (btnDown.justPressed && settings.getBrightnessIndex() > 0) {
+  if (buttons.isDownJustPressed() && settings.getBrightnessIndex() > 0) {
     settings.setBrightnessIndex(settings.getBrightnessIndex() - 1);
     settingsChanged = true;
   }
-  if (btnEnter.justPressed && !btnEnter.isRepeating) {
+  if (buttons.isEnterJustPressed() && !buttons.isEnterRepeating()) {
     appState = MENU;
   }
   
@@ -1704,11 +1623,11 @@ void handleBrightnessInput() {
 void handleTimeFormatInput() {
   bool settingsChanged = false;
   
-  if ((btnUp.justPressed || btnDown.justPressed) && !(btnUp.isRepeating || btnDown.isRepeating)) {
+  if ((buttons.isUpJustPressed() || buttons.isDownJustPressed()) && !(buttons.isUpRepeating() || buttons.isDownRepeating())) {
     settings.setUse24HourFormat(!settings.getUse24HourFormat());
     settingsChanged = true;
   }
-  if (btnEnter.justPressed && !btnEnter.isRepeating) {
+  if (buttons.isEnterJustPressed() && !buttons.isEnterRepeating()) {
     appState = MENU;
   }
   
@@ -1724,15 +1643,15 @@ void handleTimeFormatInput() {
 void handleClockColorInput() {
   bool settingsChanged = false;
   
-  if (btnDown.justPressed) {
+  if (buttons.isDownJustPressed()) {
     clockColorMenuIndex = (clockColorMenuIndex + 1) % CLOCK_COLOR_OPTIONS;
     settingsChanged = true;
   }
-  if (btnUp.justPressed) {
+  if (buttons.isUpJustPressed()) {
     clockColorMenuIndex = (clockColorMenuIndex - 1 + CLOCK_COLOR_OPTIONS) % CLOCK_COLOR_OPTIONS;
     settingsChanged = true;
   }
-  if (btnEnter.justPressed && !btnEnter.isRepeating) {
+  if (buttons.isEnterJustPressed() && !buttons.isEnterRepeating()) {
     settings.setClockColorMode((ClockColorMode)clockColorMenuIndex);
     settings.saveSettings();
     appState = MENU;
@@ -1806,8 +1725,8 @@ void handleTimeSettingMode() {
   }
   
   // Handle button inputs - allow repeating for scrolling, but consume each press
-  if (btnUp.justPressed) {
-    btnUp.justPressed = false;  // Immediately consume the button press
+  if (buttons.isUpJustPressed()) {
+    buttons.clearUpJustPressed();  // Immediately consume the button press
     Serial.print("UP pressed (consumed)! ");
     switch (setStep) {
       case SET_HOUR:   
@@ -1825,8 +1744,8 @@ void handleTimeSettingMode() {
     }
   }
   
-  if (btnDown.justPressed) {
-    btnDown.justPressed = false;  // Immediately consume the button press
+  if (buttons.isDownJustPressed()) {
+    buttons.clearDownJustPressed();  // Immediately consume the button press
     Serial.print("DOWN pressed (consumed)! ");
     switch (setStep) {
       case SET_HOUR:   
@@ -1845,17 +1764,17 @@ void handleTimeSettingMode() {
   }
   
   // Handle field progression - ENTER only on single press with cooldown
-  if (btnEnter.justPressed) {
+  if (buttons.isEnterJustPressed()) {
     Serial.print("ENTER justPressed=true, isRepeating=");
-    Serial.print(btnEnter.isRepeating);
+    Serial.print(buttons.isEnterRepeating());
     Serial.print(", Current setStep: ");
     Serial.print((int)setStep);
     Serial.print(", Time since last ENTER: ");
     Serial.print(millis() - lastEnterPress);
     Serial.print("ms");
     
-    if (!btnEnter.isRepeating && (millis() - lastEnterPress) > ENTER_COOLDOWN) {
-      btnEnter.justPressed = false;  // Immediately consume the button press
+    if (!buttons.isEnterRepeating() && (millis() - lastEnterPress) > ENTER_COOLDOWN) {
+      buttons.clearEnterJustPressed();  // Immediately consume the button press
       Serial.print(" -> PROCESSING (consumed) -> ");
       lastEnterPress = millis();  // Update last press time
       
@@ -1885,7 +1804,7 @@ void handleTimeSettingMode() {
       blinkState = true;
       lastBlink = millis();
     } else {
-      if (btnEnter.isRepeating) {
+      if (buttons.isEnterRepeating()) {
         Serial.println(" -> IGNORING (isRepeating=true)");
       } else {
         Serial.println(" -> IGNORING (cooldown active)");
@@ -1939,10 +1858,8 @@ void initializeSystem() {
   // Initialize settings manager
   settings.begin();
   
-  // Initialize buttons
-  pinMode(PIN_BTN_UP, INPUT_PULLUP);
-  pinMode(PIN_BTN_DOWN, INPUT_PULLUP);
-  pinMode(PIN_BTN_ENTER, INPUT_PULLUP);
+  // Initialize button manager
+  buttons.begin();
   
   // Initialize matrix
   ProtomatterStatus status = matrix.begin();
@@ -1994,7 +1911,7 @@ void updateDisplay() {
   // Render based on current state
   switch (appState) {
     case SHOW_TIME:
-      allowButtonRepeat = false; // Disable repeating for normal clock display
+      buttons.setAllowButtonRepeat(false); // Disable repeating for normal clock display
       // Render background effects
       renderEffects();
       
@@ -2043,37 +1960,37 @@ void updateDisplay() {
       break;
       
     case MENU:
-      allowButtonRepeat = false; // Disable repeating for menu navigation
+      buttons.setAllowButtonRepeat(false); // Disable repeating for menu navigation
       displayMainMenu();
       break;
       
     case EDIT_TEXT_SIZE:
-      allowButtonRepeat = false; // Disable repeating for text size menu
+      buttons.setAllowButtonRepeat(false); // Disable repeating for text size menu
       displayTextSizeMenu();
       break;
       
     case EDIT_BRIGHTNESS:
-      allowButtonRepeat = false; // Disable repeating for brightness menu
+      buttons.setAllowButtonRepeat(false); // Disable repeating for brightness menu
       displayBrightnessMenu();
       break;
       
     case EDIT_TIME_FORMAT:
-      allowButtonRepeat = false; // Disable repeating for time format menu
+      buttons.setAllowButtonRepeat(false); // Disable repeating for time format menu
       displayTimeFormatMenu();
       break;
       
     case EDIT_CLOCK_COLOR:
-      allowButtonRepeat = false; // Disable repeating for clock color menu
+      buttons.setAllowButtonRepeat(false); // Disable repeating for clock color menu
       displayClockColorMenu();
       break;
       
     case EDIT_EFFECTS:
-      allowButtonRepeat = false; // Disable repeating for effects menu
+      buttons.setAllowButtonRepeat(false); // Disable repeating for effects menu
       displayEffectsMenu();
       break;
       
     case TIME_SET:
-      allowButtonRepeat = true; // Enable repeating for time setting
+      buttons.setAllowButtonRepeat(true); // Enable repeating for time setting
       handleTimeSettingMode();
       break;
   }
@@ -2129,7 +2046,7 @@ void setup() {
 }
 
 void loop() {
-  updateAllButtons();
+  buttons.updateAll();
   handleInput();
   updateDisplay();
   
