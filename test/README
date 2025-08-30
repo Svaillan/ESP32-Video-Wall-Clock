@@ -1,0 +1,66 @@
+
+# Test Directory
+
+This directory is intended for PlatformIO Test Runner and unit tests for the ESP32 LED Matrix Clock project.
+
+## Current Status
+
+This project currently does not include unit tests, as the functionality is primarily hardware-dependent (LED matrix display, RTC module, button inputs).
+
+## Potential Test Areas
+
+Future unit tests could cover:
+
+### Pure Functions
+- **Color Utilities**: RGB to 565 conversion, brightness scaling
+- **Time Formatting**: 12/24 hour conversion, string formatting
+- **Mathematics**: Particle physics calculations for effects
+- **Menu Logic**: State transitions and input validation
+
+### Mock Testing
+- **Button Input**: Simulated button press sequences
+- **Menu Navigation**: Complete menu traversal tests
+- **Settings Persistence**: EEPROM read/write validation
+- **Effect Systems**: Particle behavior verification
+
+## Example Test Structure
+
+```cpp
+#include <unity.h>
+#include "main.cpp"
+
+void test_color_brightness_scaling() {
+    uint16_t color = matrix.color565(255, 255, 255);  // White
+    uint16_t dimmed = scaleBrightness(color, 0.5);    // 50% brightness
+    
+    // Extract RGB components and verify scaling
+    TEST_ASSERT_EQUAL(127, ((dimmed >> 11) & 0x1F) << 3);  // Red component
+}
+
+void test_time_format_conversion() {
+    // Test 24h to 12h conversion
+    TEST_ASSERT_EQUAL(12, convert24to12(0));   // Midnight -> 12 AM
+    TEST_ASSERT_EQUAL(1, convert24to12(13));   // 1 PM
+    TEST_ASSERT_EQUAL(12, convert24to12(12));  // Noon -> 12 PM
+}
+
+void setup() {
+    UNITY_BEGIN();
+    RUN_TEST(test_color_brightness_scaling);
+    RUN_TEST(test_time_format_conversion);
+    UNITY_END();
+}
+
+void loop() {}
+```
+
+## Running Tests
+
+To run tests when implemented:
+
+```bash
+pio test
+```
+
+For more information about PlatformIO Unit Testing:
+https://docs.platformio.org/en/latest/advanced/unit-testing/index.html

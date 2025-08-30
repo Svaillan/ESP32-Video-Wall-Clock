@@ -1,0 +1,50 @@
+
+# Libraries Directory
+
+This directory is intended for project-specific (private) libraries for the ESP32 LED Matrix Clock.
+
+## Current Dependencies
+
+This project currently uses external libraries managed by PlatformIO:
+
+- **Adafruit Protomatter** - RGB LED matrix driver for HUB75 panels
+- **RTClib** - Real-time clock functionality for DS3231 module
+- **Wire** - I2C communication library
+
+These are automatically downloaded and managed via `platformio.ini`.
+
+## Custom Libraries
+
+If you create custom libraries for this project, place them here with this structure:
+
+```
+lib/
+├── MatrixEffects/
+│   ├── src/
+│   │   ├── MatrixEffects.cpp
+│   │   └── MatrixEffects.h
+│   └── library.json
+├── ClockUtilities/
+│   ├── src/
+│   │   ├── ClockUtilities.cpp
+│   │   └── ClockUtilities.h
+│   └── library.json
+└── README (this file)
+```
+
+## Potential Custom Libraries
+
+Consider creating these libraries for better code organization:
+
+- **MatrixEffects** - Background effect system (confetti, rain, fireworks, etc.)
+- **ClockUtilities** - Time formatting and display functions
+- **MenuSystem** - Navigation and user interface components
+- **ColorManager** - Color definitions and brightness control
+- **ButtonHandler** - Input processing with debouncing
+
+## Usage
+
+Custom libraries are automatically detected and linked by PlatformIO's Library Dependency Finder.
+
+For more information:
+https://docs.platformio.org/page/librarymanager/ldf.html
