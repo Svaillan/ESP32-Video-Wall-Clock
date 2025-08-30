@@ -439,3 +439,57 @@ float MatrixDisplayManager::generateVelocity(float minSpeed, float maxSpeed, boo
     
     return velocity;
 }
+
+/**
+ * Draw black background rectangles around the text areas
+ */
+void MatrixDisplayManager::drawTextBackground() {
+    // Draw background for main clock
+    int x1, y1, x2, y2;
+    getTimeDisplayBounds(x1, y1, x2, y2);
+    fillRect(x1, y1, x2 - x1 + 1, y2 - y1 + 1, 0x0000);
+    
+    // Draw background for AM/PM if in 12-hour format
+    if (!settings->getUse24HourFormat()) {
+        getAMPMDisplayBounds(x1, y1, x2, y2);
+        fillRect(x1, y1, x2 - x1 + 1, y2 - y1 + 1, 0x0000);
+    }
+}
+
+/**
+ * Draw tight clock display that removes extra spacing
+ */
+void MatrixDisplayManager::drawTightClock(const char* timeStr, int textSize, uint16_t color, int y) {
+    if (y == -1) {
+        y = getCenteredY(textSize);
+    }
+    
+    setTextSize(textSize);
+    setTextColor(color);
+    
+    // Calculate spacing like the original
+    int digitWidth = 6 * textSize;
+    int colonWidth = 3 * textSize;
+    int beforeColon = -2 * textSize;
+    int afterColon = 1 * textSize;
+    
+    // Calculate total width and starting X
+    int totalWidth = (6 * digitWidth) + (2 * (beforeColon + colonWidth + afterColon));
+    int x = (MATRIX_WIDTH - totalWidth) / 2;
+    
+    // Draw each character with proper spacing
+    for (int i = 0; timeStr[i] != '\0' && i < 8; i++) {
+        char c = timeStr[i];
+        if (c == ':') {
+            x += beforeColon;
+            setCursor(x, y);
+            print(":");
+            x += colonWidth + afterColon;
+        } else {
+            setCursor(x, y);
+            char charStr[2] = {c, '\0'};
+            print(charStr);
+            x += digitWidth;
+        }
+    }
+}

@@ -7,6 +7,7 @@
 #include "ButtonManager.h"
 #include "MatrixDisplayManager.h"
 #include "EffectsEngine.h"
+#include "MenuSystem.h"
 
 // ===============================================
 // CONFIGURATION & CONSTANTS
@@ -37,25 +38,6 @@ uint8_t oePin      = 15;
 // DATA STRUCTURES & ENUMS
 // ===============================================
 
-enum AppState { 
-  SHOW_TIME, 
-  MENU, 
-  EDIT_TEXT_SIZE, 
-  EDIT_BRIGHTNESS, 
-  EDIT_TIME_FORMAT,
-  EDIT_CLOCK_COLOR,
-  EDIT_EFFECTS, 
-  TIME_SET 
-};
-
-enum SetClockStep { 
-  NONE, 
-  SET_HOUR, 
-  SET_MINUTE, 
-  SET_SECOND, 
-  CONFIRM 
-};
-
 // ===============================================
 // GLOBAL VARIABLES
 // ===============================================
@@ -65,10 +47,13 @@ Adafruit_Protomatter matrix(
   MATRIX_WIDTH, BIT_DEPTH, 1, rgbPins,
   4, addrPins, clockPin, latchPin, oePin, true);
 RTC_DS3231 rtc;
+
+// System instances
 SettingsManager settings;
 ButtonManager buttons;
 MatrixDisplayManager display(&matrix, &settings);
 EffectsEngine effects(&display, &settings);
+MenuSystem menu(&display, &settings, &buttons, &effects, &rtc);
 
 // Display Settings
 uint16_t textColors[BRIGHTNESS_LEVELS] = { 0x2104, 0x4208, 0x630C, 0x8410, 0xA514, 0xC618, 0xE71C, 0xEF5D, 0xF79E, 0xFFFF };
@@ -76,33 +61,8 @@ float brightnessLevels[BRIGHTNESS_LEVELS] = { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7,
 
 // State Variables
 AppState appState = SHOW_TIME;
-SetClockStep setStep = NONE;
-// Button configuration
-const int buttonPins[] = {19, 18, 5};  // UP, DOWN, ENTER
-const int numButtons = 3;
-
-// Menu Configuration
-const char* menuItems[] = { "Text Size", "Brightness", "Time Format", "Clock Color", "Effects", "Set Clock", "Exit" };
-const int MENU_ITEMS = sizeof(menuItems) / sizeof(menuItems[0]);
-const char* effectNames[] = {"Confetti", "Acid", "Rain", "Torrent", "Stars", "Sparkles", "Fireworks", "Tron", "Off"};
-const int EFFECT_OPTIONS = sizeof(effectNames) / sizeof(effectNames[0]);
-const char* clockColorNames[] = {"White", "Red", "Green", "Blue", "Yellow", "Cyan", "Magenta", "Orange", "Purple", "Pink", "Lime", "Teal", "Indigo", "Gold", "Silver", "Rainbow"};
-const int CLOCK_COLOR_OPTIONS = sizeof(clockColorNames) / sizeof(clockColorNames[0]);
-
-// Menu State
-int menuIndex = 0;
-int effectMenuIndex = 0;
-int clockColorMenuIndex = 0;
-
-// Time Setting State
-int setHour = 0, setMin = 0, setSec = 0;
-bool inSetMode = false;
-uint32_t timeSetEntryTime = 0;  // Time when we entered time setting mode
-const uint32_t BUTTON_LOCK_DURATION = 1000;  // 1 second lock after entering
-uint32_t lastEnterPress = 0;  // Track last ENTER button press
-const uint32_t ENTER_COOLDOWN = 300;  // 300ms cooldown between ENTER presses
-bool entryLockProcessed = false;  // Track if entry lock has been processed
-char timeStr[16];
+uint32_t systemStartTime = 0;
+const uint32_t STARTUP_GRACE_PERIOD = 2000; // 2 seconds to stabilize
 
 // ===============================================
 // UTILITY FUNCTIONS
@@ -476,567 +436,11 @@ bool isInTextArea(int x, int y) {
 
 
 /**
- * Draw black background rectangles around the text areas
- */
-void drawTextBackground() {
-  if (appState != SHOW_TIME) return;
-  
-  // Draw background for main clock
-  int x1, y1, x2, y2;
-  display.getTimeDisplayBounds(x1, y1, x2, y2);
-  display.fillRect(x1, y1, x2 - x1 + 1, y2 - y1 + 1, 0x0000);
-  
-  // Draw background for AM/PM if in 12-hour format
-  if (!settings.getUse24HourFormat()) {
-    display.getAMPMDisplayBounds(x1, y1, x2, y2);
-    display.fillRect(x1, y1, x2 - x1 + 1, y2 - y1 + 1, 0x0000);
-  }
-}
-
-/**
  * Render background effects
  */
 void renderEffects() {
   effects.updateEffects();
-  drawTextBackground();  // Draw black background behind text for all effects except OFF
-}
-
-// ===============================================
-// CLOCK DISPLAY
-// ===============================================
-
-/**
- * Draw time string with tight, centered spacing
- */
-void drawTightClock(const char* timeStr, int textSize, uint16_t color, int y = -1) {
-  if (y == -1) {
-    y = getCenteredY(textSize);
-  }
-  
-  matrix.setTextSize(textSize);
-  matrix.setTextColor(color);
-  
-  // Calculate spacing
-  int digitWidth = 6 * textSize;
-  int colonWidth = 3 * textSize;
-  int beforeColon = -2 * textSize;
-  int afterColon = 1 * textSize;
-  
-  // Calculate total width and starting X
-  int totalWidth = (6 * digitWidth) + (2 * (beforeColon + colonWidth + afterColon));
-  int x = (MATRIX_WIDTH - totalWidth) / 2;
-  
-  // Draw each character
-  for (int i = 0; timeStr[i] != '\0' && i < 8; i++) {
-    char c = timeStr[i];
-    if (c == ':') {
-      x += beforeColon;
-      matrix.setCursor(x, y);
-      matrix.print(':');
-      x += colonWidth + afterColon;
-    } else {
-      matrix.setCursor(x, y);
-      matrix.print(c);
-      x += digitWidth;
-    }
-  }
-}
-
-// ===============================================
-// MENU SYSTEM
-// ===============================================
-
-/**
- * Handle menu entry logic
- */
-void handleMenuEntry() {
-  static bool blockMenuReentry = false;
-  static uint32_t enterPressTime = 0;
-  static bool wasPressed = false;
-  
-  if (appState == SHOW_TIME) {
-    if (blockMenuReentry) {
-      if (!buttons.isEnterPressed()) blockMenuReentry = false;
-    } else {
-      if (buttons.isEnterPressed() && !wasPressed) {
-        enterPressTime = millis();
-        wasPressed = true;
-      }
-      if (!buttons.isEnterPressed() && wasPressed) {
-        if (millis() - enterPressTime < 1000) {
-          appState = MENU;
-          menuIndex = 0;
-        }
-        wasPressed = false;
-        blockMenuReentry = true;
-      }
-    }
-  }
-}
-
-/**
- * Display main menu
- */
-void displayMainMenu() {
-  char menuLine[32];
-  strcpy(menuLine, menuItems[menuIndex]);
-  
-  // Add current values to menu items
-  switch (menuIndex) {
-    case 0: // Text Size
-      sprintf(menuLine + strlen(menuLine), " (%d)", settings.getTextSize());
-      break;
-    case 1: // Brightness
-      sprintf(menuLine + strlen(menuLine), " (%d)", settings.getBrightnessIndex() + 1);
-      break;
-    case 2: // Time Format
-      sprintf(menuLine + strlen(menuLine), " (%s)", settings.getUse24HourFormat() ? "24H" : "12H");
-      break;
-    case 3: // Clock Color
-      sprintf(menuLine + strlen(menuLine), " (%s)", clockColorNames[settings.getClockColorMode()]);
-      break;
-    case 4: // Effects
-      sprintf(menuLine + strlen(menuLine), " (%s)", effectNames[settings.getEffectMode()]);
-      break;
-  }
-  
-  drawCenteredTextWithBox(menuLine, 1, applyBrightness(0xF81F));  // Purple menus with brightness scaling
-}
-
-/**
- * Handle main menu navigation
- */
-void handleMainMenuInput() {
-  if (buttons.isDownJustPressed()) {
-    menuIndex = (menuIndex + 1) % MENU_ITEMS;
-  }
-  if (buttons.isUpJustPressed()) {
-    menuIndex = (menuIndex - 1 + MENU_ITEMS) % MENU_ITEMS;
-  }
-  if (buttons.isEnterJustPressed() && !buttons.isEnterRepeating()) {
-    switch (menuIndex) {
-      case 0: 
-        appState = EDIT_TEXT_SIZE; 
-        break;
-      case 1: 
-        appState = EDIT_BRIGHTNESS; 
-        break;
-      case 2: 
-        appState = EDIT_TIME_FORMAT; 
-        break;
-      case 3: 
-        clockColorMenuIndex = settings.getClockColorMode();
-        appState = EDIT_CLOCK_COLOR;
-        break;
-      case 4: 
-        effectMenuIndex = settings.getEffectMode();
-        appState = EDIT_EFFECTS;
-        break;
-      case 5: // Set Clock
-        {
-          DateTime now = rtc.now();
-          setHour = now.hour();
-          setMin = now.minute();
-          setSec = now.second();
-          setStep = SET_HOUR;  // Explicitly start at hour
-          inSetMode = true;
-          timeSetEntryTime = millis();  // Record entry time for button lock
-          lastEnterPress = 0;  // Reset ENTER cooldown tracking
-          entryLockProcessed = false;  // Reset entry lock flag
-          appState = TIME_SET;
-          
-          // Debug output
-          Serial.println("Entering time set mode");
-          Serial.print("Starting at setStep: ");
-          Serial.println((int)setStep);  // Cast to int for debugging
-          Serial.print("SET_HOUR enum value: ");
-          Serial.println((int)SET_HOUR);
-          Serial.print("Current time: ");
-          Serial.print(setHour); Serial.print(":");
-          Serial.print(setMin); Serial.print(":");
-          Serial.println(setSec);
-          Serial.print("Entry time: ");
-          Serial.println(timeSetEntryTime);
-        }
-        break;
-      case 6: // Exit
-        appState = SHOW_TIME;
-        break;
-    }
-  }
-}
-
-/**
- * Display effects menu
- */
-void displayEffectsMenu() {
-  // Store current effect mode
-  EffectMode originalMode = settings.getEffectMode();
-  
-  // Temporarily set effect mode to preview the selected effect
-  settings.setEffectMode((EffectMode)effectMenuIndex);
-  
-  // Render the preview effect
-  if (settings.getEffectMode() != EFFECT_OFF) {
-    renderEffects();
-  } else {
-    // Clear screen for "off" effect
-    matrix.fillScreen(0);
-  }
-  
-  // Restore original effect mode
-  settings.setEffectMode(originalMode);
-  
-  // Draw menu text on top
-  char menuLine[32];
-  strcpy(menuLine, effectNames[effectMenuIndex]);
-  
-  // Add indicator if this is the currently active effect
-  if (effectMenuIndex == settings.getEffectMode()) {
-    sprintf(menuLine + strlen(menuLine), " *");
-  }
-  
-  drawCenteredTextWithBox(menuLine, 1, applyBrightness(0xF81F));  // Purple with brightness scaling
-}
-
-/**
- * Handle effects menu input
- */
-void handleEffectsMenuInput() {
-  if (buttons.isDownJustPressed()) {
-    effectMenuIndex = (effectMenuIndex + 1) % EFFECT_OPTIONS;
-  }
-  if (buttons.isUpJustPressed()) {
-    effectMenuIndex = (effectMenuIndex - 1 + EFFECT_OPTIONS) % EFFECT_OPTIONS;
-  }
-  if (buttons.isEnterJustPressed() && !buttons.isEnterRepeating()) {
-    settings.setEffectMode((EffectMode)effectMenuIndex);
-    settings.saveSettings();  // Save the new effect mode
-    appState = MENU;
-  }
-}
-
-/**
- * Display text size adjustment screen
- */
-void displayTextSizeMenu() {
-  char settingStr[24];
-  sprintf(settingStr, "Text Size: %d", settings.getTextSize());
-  drawCenteredTextWithBox(settingStr, 1, applyBrightness(0xF81F));  // Purple with brightness scaling
-}
-
-/**
- * Handle text size adjustment input
- */
-void handleTextSizeInput() {
-  bool settingsChanged = false;
-  
-  if (buttons.isUpJustPressed() && settings.getTextSize() < TEXT_SIZE_MAX) {
-    settings.setTextSize(settings.getTextSize() + 1);
-    settingsChanged = true;
-  }
-  if (buttons.isDownJustPressed() && settings.getTextSize() > TEXT_SIZE_MIN) {
-    settings.setTextSize(settings.getTextSize() - 1);
-    settingsChanged = true;
-  }
-  if (buttons.isEnterJustPressed() && !buttons.isEnterRepeating()) {
-    appState = MENU;
-  }
-  
-  // Save settings if they changed
-  if (settingsChanged) {
-    settings.saveSettings();
-  }
-}
-
-/**
- * Display brightness adjustment screen
- */
-void displayBrightnessMenu() {
-  char settingStr[24];
-  sprintf(settingStr, "Brightness: %d", settings.getBrightnessIndex() + 1);
-  drawCenteredTextWithBox(settingStr, 1, applyBrightness(0xF81F));  // Purple with brightness scaling
-}
-
-/**
- * Display the time format selection menu
- */
-void displayTimeFormatMenu() {
-  const char* formatStr = settings.getUse24HourFormat() ? "24 Hour" : "12 Hour";
-  char settingStr[24];
-  sprintf(settingStr, "Format: %s", formatStr);
-  drawCenteredTextWithBox(settingStr, 1, applyBrightness(0xF81F));  // Purple with brightness scaling
-}
-
-/**
- * Display the clock color selection menu with preview
- */
-void displayClockColorMenu() {
-  // Save current mode and temporarily set to preview mode
-  ClockColorMode tempMode = settings.getClockColorMode();
-  settings.setClockColorMode((ClockColorMode)clockColorMenuIndex);
-  
-  // Draw preview time with fixed text size 2
-  uint16_t color = getClockColor();
-  drawTightClock("12:34:56", 2, color);
-  
-  // Show the color name at the bottom
-  int nameY = MATRIX_HEIGHT - 9;
-  drawCenteredTextWithBox(clockColorNames[clockColorMenuIndex], 1, applyBrightness(0xF81F), 0x0000, nameY);  // Purple with black box
-  
-  // Restore original mode
-  settings.setClockColorMode(tempMode);
-}
-
-/**
- * Handle brightness adjustment input
- */
-void handleBrightnessInput() {
-  bool settingsChanged = false;
-  
-  if (buttons.isUpJustPressed() && settings.getBrightnessIndex() < BRIGHTNESS_LEVELS - 1) {
-    settings.setBrightnessIndex(settings.getBrightnessIndex() + 1);
-    settingsChanged = true;
-  }
-  if (buttons.isDownJustPressed() && settings.getBrightnessIndex() > 0) {
-    settings.setBrightnessIndex(settings.getBrightnessIndex() - 1);
-    settingsChanged = true;
-  }
-  if (buttons.isEnterJustPressed() && !buttons.isEnterRepeating()) {
-    appState = MENU;
-  }
-  
-  // Save settings if they changed
-  if (settingsChanged) {
-    settings.saveSettings();
-  }
-}
-
-/**
- * Handle time format adjustment input
- */
-void handleTimeFormatInput() {
-  bool settingsChanged = false;
-  
-  if ((buttons.isUpJustPressed() || buttons.isDownJustPressed()) && !(buttons.isUpRepeating() || buttons.isDownRepeating())) {
-    settings.setUse24HourFormat(!settings.getUse24HourFormat());
-    settingsChanged = true;
-  }
-  if (buttons.isEnterJustPressed() && !buttons.isEnterRepeating()) {
-    appState = MENU;
-  }
-  
-  // Save settings if they changed
-  if (settingsChanged) {
-    settings.saveSettings();
-  }
-}
-
-/**
- * Handle clock color adjustment input
- */
-void handleClockColorInput() {
-  bool settingsChanged = false;
-  
-  if (buttons.isDownJustPressed()) {
-    clockColorMenuIndex = (clockColorMenuIndex + 1) % CLOCK_COLOR_OPTIONS;
-    settingsChanged = true;
-  }
-  if (buttons.isUpJustPressed()) {
-    clockColorMenuIndex = (clockColorMenuIndex - 1 + CLOCK_COLOR_OPTIONS) % CLOCK_COLOR_OPTIONS;
-    settingsChanged = true;
-  }
-  if (buttons.isEnterJustPressed() && !buttons.isEnterRepeating()) {
-    settings.setClockColorMode((ClockColorMode)clockColorMenuIndex);
-    settings.saveSettings();
-    appState = MENU;
-  }
-  
-  // Update the preview immediately
-  if (settingsChanged) {
-    // No need to save here since we only save on ENTER
-  }
-}
-
-// ===============================================
-// TIME SETTING SYSTEM
-// ===============================================
-
-/**
- * Handle time setting mode
- */
-void handleTimeSettingMode() {
-  static bool blinkState = true;
-  static uint32_t lastBlink = 0;
-  static bool debugPrinted = false;
-  static SetClockStep lastSetStep = NONE;
-  
-  // Reset debug flag if step changed
-  if (setStep != lastSetStep) {
-    debugPrinted = false;
-    lastSetStep = setStep;
-  }
-  
-  // Debug output once when entering each step
-  if (!debugPrinted) {
-    Serial.println("=== TIME SETTING DEBUG ===");
-    Serial.print("setStep = ");
-    Serial.print((int)setStep);
-    Serial.print(" (");
-    switch(setStep) {
-      case NONE: Serial.print("NONE"); break;
-      case SET_HOUR: Serial.print("SET_HOUR"); break;
-      case SET_MINUTE: Serial.print("SET_MINUTE"); break;
-      case SET_SECOND: Serial.print("SET_SECOND"); break;
-      case CONFIRM: Serial.print("CONFIRM"); break;
-      default: Serial.print("UNKNOWN"); break;
-    }
-    Serial.println(")");
-    debugPrinted = true;
-  }
-  
-  // Handle blinking at 500ms intervals
-  if (millis() - lastBlink > 500) {
-    blinkState = !blinkState;
-    lastBlink = millis();
-  }
-  
-  // Simple button lock ONLY on initial entry to prevent menu bleed-through
-  if (setStep == SET_HOUR && !entryLockProcessed && millis() - timeSetEntryTime < BUTTON_LOCK_DURATION) {
-    // Just display during lock period, don't process buttons
-    char displayStr[12];
-    if (blinkState) {
-      snprintf(displayStr, sizeof(displayStr), "%02d:%02d:%02d", setHour, setMin, setSec);
-    } else {
-      snprintf(displayStr, sizeof(displayStr), "  :%02d:%02d", setMin, setSec);
-    }
-    drawTightClock(displayStr, settings.getTextSize(), textColors[settings.getBrightnessIndex()]);
-    return;
-  }
-  
-  // Mark entry lock as processed after first check
-  if (setStep == SET_HOUR && !entryLockProcessed) {
-    entryLockProcessed = true;
-  }
-  
-  // Handle button inputs - allow repeating for scrolling, but consume each press
-  if (buttons.isUpJustPressed()) {
-    buttons.clearUpJustPressed();  // Immediately consume the button press
-    Serial.print("UP pressed (consumed)! ");
-    switch (setStep) {
-      case SET_HOUR:   
-        setHour = (setHour + 1) % 24; 
-        Serial.print("Hour: "); Serial.println(setHour);
-        break;
-      case SET_MINUTE: 
-        setMin = (setMin + 1) % 60; 
-        Serial.print("Minute: "); Serial.println(setMin);
-        break;
-      case SET_SECOND: 
-        setSec = (setSec + 1) % 60; 
-        Serial.print("Second: "); Serial.println(setSec);
-        break;
-    }
-  }
-  
-  if (buttons.isDownJustPressed()) {
-    buttons.clearDownJustPressed();  // Immediately consume the button press
-    Serial.print("DOWN pressed (consumed)! ");
-    switch (setStep) {
-      case SET_HOUR:   
-        setHour = (setHour + 23) % 24; 
-        Serial.print("Hour: "); Serial.println(setHour);
-        break;
-      case SET_MINUTE: 
-        setMin = (setMin + 59) % 60; 
-        Serial.print("Minute: "); Serial.println(setMin);
-        break;
-      case SET_SECOND: 
-        setSec = (setSec + 59) % 60; 
-        Serial.print("Second: "); Serial.println(setSec);
-        break;
-    }
-  }
-  
-  // Handle field progression - ENTER only on single press with cooldown
-  if (buttons.isEnterJustPressed()) {
-    Serial.print("ENTER justPressed=true, isRepeating=");
-    Serial.print(buttons.isEnterRepeating());
-    Serial.print(", Current setStep: ");
-    Serial.print((int)setStep);
-    Serial.print(", Time since last ENTER: ");
-    Serial.print(millis() - lastEnterPress);
-    Serial.print("ms");
-    
-    if (!buttons.isEnterRepeating() && (millis() - lastEnterPress) > ENTER_COOLDOWN) {
-      buttons.clearEnterJustPressed();  // Immediately consume the button press
-      Serial.print(" -> PROCESSING (consumed) -> ");
-      lastEnterPress = millis();  // Update last press time
-      
-      switch (setStep) {
-        case SET_HOUR:   
-          setStep = SET_MINUTE;
-          Serial.println("SET_MINUTE");
-          break;
-        case SET_MINUTE: 
-          setStep = SET_SECOND;
-          Serial.println("SET_SECOND");
-          break;
-        case SET_SECOND: 
-          Serial.println("EXITING");
-          // Set the RTC time and exit
-          DateTime rtcNow = rtc.now();
-          DateTime newTime = DateTime(rtcNow.year(), rtcNow.month(), rtcNow.day(), setHour, setMin, setSec);
-          rtc.adjust(newTime);
-          
-          // Exit time setting mode
-          inSetMode = false;
-          appState = SHOW_TIME;
-          setStep = NONE;
-          return;
-      }
-      // Reset blink state when changing fields
-      blinkState = true;
-      lastBlink = millis();
-    } else {
-      if (buttons.isEnterRepeating()) {
-        Serial.println(" -> IGNORING (isRepeating=true)");
-      } else {
-        Serial.println(" -> IGNORING (cooldown active)");
-      }
-    }
-  }
-  
-  // Display time with appropriate blinking field
-  char displayStr[12];
-  switch (setStep) {
-    case SET_HOUR:
-      if (blinkState) {
-        snprintf(displayStr, sizeof(displayStr), "%02d:%02d:%02d", setHour, setMin, setSec);
-      } else {
-        snprintf(displayStr, sizeof(displayStr), "  :%02d:%02d", setMin, setSec);
-      }
-      break;
-    case SET_MINUTE:
-      if (blinkState) {
-        snprintf(displayStr, sizeof(displayStr), "%02d:%02d:%02d", setHour, setMin, setSec);
-      } else {
-        snprintf(displayStr, sizeof(displayStr), "%02d:  :%02d", setHour, setSec);
-      }
-      break;
-    case SET_SECOND:
-      if (blinkState) {
-        snprintf(displayStr, sizeof(displayStr), "%02d:%02d:%02d", setHour, setMin, setSec);
-      } else {
-        snprintf(displayStr, sizeof(displayStr), "%02d:%02d:  ", setHour, setMin);
-      }
-      break;
-    default:
-      snprintf(displayStr, sizeof(displayStr), "%02d:%02d:%02d", setHour, setMin, setSec);
-      break;
-  }
-  
-  drawTightClock(displayStr, settings.getTextSize(), textColors[settings.getBrightnessIndex()]);
+  display.drawTextBackground();  // Draw black background behind text for all effects except OFF
 }
 
 // ===============================================
@@ -1084,6 +488,13 @@ void initializeSystem() {
   // Initialize effects engine
   effects.begin();
   
+  // Initialize menu system
+  menu.begin();
+  menu.reset(); // Ensure clean state on boot
+  
+  // Set startup time for grace period
+  systemStartTime = millis();
+  
   Serial.println("Setup complete!");
 }
 
@@ -1125,9 +536,10 @@ void updateDisplay() {
           }
         }
         
+        char timeStr[16];
         snprintf(timeStr, sizeof(timeStr), "%02d:%02d:%02d", 
                 hour, now.minute(), now.second());
-        drawTightClock(timeStr, settings.getTextSize(), getClockColor());
+        display.drawTightClock(timeStr, settings.getTextSize(), display.getClockColor());
         
         // Display AM/PM in bottom right if using 12-hour format
         if (!settings.getUse24HourFormat()) {
@@ -1137,7 +549,7 @@ void updateDisplay() {
           int ampmX = MATRIX_WIDTH - (ampmStr.length() * 6) - 1;  // 6 pixels per char at size 1
           int ampmY = MATRIX_HEIGHT - 8;  // 8 pixels height at size 1
           
-          uint16_t color = getClockColor();
+          uint16_t color = display.getClockColor();
           matrix.setCursor(ampmX, ampmY);
           matrix.setTextColor(color);
           matrix.print(ampmStr);
@@ -1145,39 +557,9 @@ void updateDisplay() {
       }
       break;
       
-    case MENU:
-      buttons.setAllowButtonRepeat(false); // Disable repeating for menu navigation
-      displayMainMenu();
-      break;
-      
-    case EDIT_TEXT_SIZE:
-      buttons.setAllowButtonRepeat(false); // Disable repeating for text size menu
-      displayTextSizeMenu();
-      break;
-      
-    case EDIT_BRIGHTNESS:
-      buttons.setAllowButtonRepeat(false); // Disable repeating for brightness menu
-      displayBrightnessMenu();
-      break;
-      
-    case EDIT_TIME_FORMAT:
-      buttons.setAllowButtonRepeat(false); // Disable repeating for time format menu
-      displayTimeFormatMenu();
-      break;
-      
-    case EDIT_CLOCK_COLOR:
-      buttons.setAllowButtonRepeat(false); // Disable repeating for clock color menu
-      displayClockColorMenu();
-      break;
-      
-    case EDIT_EFFECTS:
-      buttons.setAllowButtonRepeat(false); // Disable repeating for effects menu
-      displayEffectsMenu();
-      break;
-      
-    case TIME_SET:
-      buttons.setAllowButtonRepeat(true); // Enable repeating for time setting
-      handleTimeSettingMode();
+    default:
+      // Handle all menu states with MenuSystem
+      menu.updateDisplay(appState);
       break;
   }
   
@@ -1188,39 +570,11 @@ void updateDisplay() {
  * Handle user input based on current state
  */
 void handleInput() {
-  switch (appState) {
-    case SHOW_TIME:
-      handleMenuEntry();
-      break;
-      
-    case MENU:
-      handleMainMenuInput();
-      break;
-      
-    case EDIT_TEXT_SIZE:
-      handleTextSizeInput();
-      break;
-      
-    case EDIT_BRIGHTNESS:
-      handleBrightnessInput();
-      break;
-      
-    case EDIT_TIME_FORMAT:
-      handleTimeFormatInput();
-      break;
-      
-    case EDIT_CLOCK_COLOR:
-      handleClockColorInput();
-      break;
-      
-    case EDIT_EFFECTS:
-      handleEffectsMenuInput();
-      break;
-      
-    case TIME_SET:
-      handleTimeSettingMode();
-      break;
+  // Skip input processing during startup grace period
+  if (millis() - systemStartTime < STARTUP_GRACE_PERIOD) {
+    return;
   }
+  menu.handleInput(appState);
 }
 
 // ===============================================
@@ -1240,6 +594,6 @@ void loop() {
   if (appState == SHOW_TIME) {
     delay(CLOCK_UPDATE_DELAY);
   } else {
-    delay(MENU_DELAY);
+    delay(menu.getMenuDelay());
   }
 }
