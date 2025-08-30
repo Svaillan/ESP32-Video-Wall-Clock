@@ -46,6 +46,11 @@ uint8_t oePin      = 15;
 #define NUM_STARS 25
 #define STAR_TWINKLE_CHANCE 5
 
+// Shooting Star Settings
+#define NUM_SHOOTING_STARS 2
+#define SHOOTING_STAR_SPEED 0.8f
+#define SHOOTING_STAR_TRAIL_LENGTH 8
+
 // Sparkle Settings
 #define NUM_SPARKLES 30
 #define SPARKLE_DURATION 800
@@ -146,10 +151,18 @@ struct MatrixDrop {
 };
 
 struct Star {
-  uint8_t x, y;
+  float x, y;  // Current position (can be off-screen)
   uint8_t brightness;
   uint8_t twinkleState;
   uint32_t lastTwinkle;
+};
+
+struct ShootingStar {
+  float x, y;
+  float speedX, speedY;
+  bool active;
+  uint8_t trailLength;
+  uint32_t spawnTime;
 };
 
 struct Sparkle {
@@ -249,9 +262,15 @@ Confetti confetti[NUM_CONFETTI];
 MatrixDrop matrixDrops[NUM_MATRIX_DROPS];
 MatrixDrop torrentDrops[NUM_TORRENT_DROPS];
 Star stars[NUM_STARS];
+ShootingStar shootingStars[NUM_SHOOTING_STARS];
 Sparkle sparkles[NUM_SPARKLES];
 Firework fireworks[NUM_FIREWORKS];
 TronTrail tronTrails[NUM_TRON_TRAILS];
+
+// Shooting star timing variables
+uint32_t lastShootingStarTime = 0;
+bool waitingForSecondStar = false;
+uint32_t secondStarTimer = 0;
 
 // ===============================================
 // UTILITY FUNCTIONS
@@ -969,8 +988,8 @@ void updateTorrent() {
  */
 void initializeStars() {
   for (int i = 0; i < NUM_STARS; i++) {
-    stars[i].x = random(0, MATRIX_WIDTH);
-    stars[i].y = random(0, MATRIX_HEIGHT);
+    stars[i].x = random(0, MATRIX_WIDTH * 100) / 100.0f;  // Sub-pixel precision
+    stars[i].y = random(0, MATRIX_HEIGHT * 100) / 100.0f;
     stars[i].brightness = random(50, 255);
     stars[i].twinkleState = random(0, 2);
     stars[i].lastTwinkle = millis() + random(0, 2000);
@@ -978,10 +997,135 @@ void initializeStars() {
 }
 
 /**
- * Update twinkling stars effect
+ * Initialize shooting stars
+ */
+void initializeShootingStars() {
+  for (int i = 0; i < NUM_SHOOTING_STARS; i++) {
+    shootingStars[i].active = false;
+  }
+  lastShootingStarTime = millis();
+}
+
+/**
+ * Spawn a new shooting star
+ */
+void spawnShootingStar(int index) {
+  // Start from random position at the top or left edge
+  if (random(0, 2) == 0) {
+    // Start from top edge
+    shootingStars[index].x = random(0, MATRIX_WIDTH);
+    shootingStars[index].y = 0;
+  } else {
+    // Start from left edge
+    shootingStars[index].x = 0;
+    shootingStars[index].y = random(0, MATRIX_HEIGHT);
+  }
+  
+  // Diagonal movement (northwest to southeast)
+  shootingStars[index].speedX = SHOOTING_STAR_SPEED;
+  shootingStars[index].speedY = SHOOTING_STAR_SPEED * 0.7f;  // Slightly less vertical speed
+  shootingStars[index].active = true;
+  shootingStars[index].trailLength = SHOOTING_STAR_TRAIL_LENGTH;
+  shootingStars[index].spawnTime = millis();
+}
+
+/**
+ * Update drifting starfield effect - stars slowly drift across the sky
  */
 void updateStars() {
   uint32_t currentTime = millis();
+  static uint32_t lastDriftUpdate = 0;
+  static float globalDriftX = 0.005f;  // Slowed down to 10% of original speed (0.05f -> 0.005f)
+  static float globalDriftY = 0.003f;  // Slowed down to 10% of original speed (0.03f -> 0.003f)
+  
+  // Slow drift movement - update every 150ms
+  if (currentTime - lastDriftUpdate > 150) {
+    // Use FIXED drift values for perfect group movement (no random variations during movement)
+    float groupDriftX = globalDriftX;  // Completely fixed drift
+    float groupDriftY = globalDriftY;
+    
+    // Apply the SAME movement to all stars as a unified group
+    for (int i = 0; i < NUM_STARS; i++) {
+      // All stars move together with the exact same drift
+      stars[i].x += groupDriftX;
+      stars[i].y += groupDriftY;
+      
+      // If star has drifted off the right or bottom edge, respawn it on the opposite edges
+      if (stars[i].x > MATRIX_WIDTH + 2 || stars[i].y > MATRIX_HEIGHT + 2) {
+        // Spawn from left or top edges with proper coordinates
+        if (stars[i].x > MATRIX_WIDTH + 2) {
+          // Respawn on left side
+          stars[i].x = -1.5f;  // Fixed spawn position to avoid random() calls
+          stars[i].y = (i * MATRIX_HEIGHT / NUM_STARS) + (i % 3 - 1);  // Distribute evenly with slight offset
+        }
+        if (stars[i].y > MATRIX_HEIGHT + 2) {
+          // Respawn on top side
+          stars[i].y = -1.5f;  // Fixed spawn position
+          stars[i].x = (i * MATRIX_WIDTH / NUM_STARS) + (i % 3 - 1);   // Distribute evenly with slight offset
+        }
+        // Keep existing brightness to avoid random() call
+      }
+    }
+    lastDriftUpdate = currentTime;
+  }
+  
+  // Shooting star management
+  // Check if it's time to spawn a shooting star (every 5-10 minutes)
+  if (currentTime - lastShootingStarTime > random(300000, 600000)) {  // 5-10 minutes
+  // if (currentTime - lastShootingStarTime > 5000) {  // TESTING: 5 seconds (COMMENTED OUT)
+    // Find an inactive shooting star to spawn
+    for (int i = 0; i < NUM_SHOOTING_STARS; i++) {
+      if (!shootingStars[i].active) {
+        spawnShootingStar(i);
+        lastShootingStarTime = currentTime;
+        
+        // 30% chance for a second shooting star
+        if (random(0, 100) < 30) {
+          waitingForSecondStar = true;
+          secondStarTimer = currentTime + random(2000, 5000);  // 2-5 seconds later
+        }
+        break;
+      }
+    }
+  }
+  
+  // Check for second shooting star
+  if (waitingForSecondStar && currentTime >= secondStarTimer) {
+    for (int i = 0; i < NUM_SHOOTING_STARS; i++) {
+      if (!shootingStars[i].active) {
+        spawnShootingStar(i);
+        waitingForSecondStar = false;
+        break;
+      }
+    }
+  }
+  
+  // Update shooting stars
+  for (int i = 0; i < NUM_SHOOTING_STARS; i++) {
+    if (shootingStars[i].active) {
+      shootingStars[i].x += shootingStars[i].speedX;
+      shootingStars[i].y += shootingStars[i].speedY;
+      
+      // Deactivate if off screen
+      if (shootingStars[i].x > MATRIX_WIDTH + 10 || shootingStars[i].y > MATRIX_HEIGHT + 10) {
+        shootingStars[i].active = false;
+      } else {
+        // Draw shooting star trail
+        for (int t = 0; t < shootingStars[i].trailLength; t++) {
+          int trailX = (int)(shootingStars[i].x - t * shootingStars[i].speedX * 0.5f);
+          int trailY = (int)(shootingStars[i].y - t * shootingStars[i].speedY * 0.5f);
+          
+          if (trailX >= 0 && trailX < MATRIX_WIDTH && trailY >= 0 && trailY < MATRIX_HEIGHT) {
+            if (!isInTextArea(trailX, trailY)) {
+              uint8_t brightness = 255 - (t * 32);  // Fade trail
+              uint16_t color = scaledEffectColor565(brightness, brightness, brightness);
+              matrix.drawPixel(trailX, trailY, color);
+            }
+          }
+        }
+      }
+    }
+  }
   
   for (int i = 0; i < NUM_STARS; i++) {
     // Handle twinkling
@@ -990,11 +1134,16 @@ void updateStars() {
       stars[i].lastTwinkle = currentTime;
     }
     
-    // Draw star if not in text area
-    if (!isInTextArea(stars[i].x, stars[i].y)) {
-      uint8_t brightness = stars[i].twinkleState ? stars[i].brightness : stars[i].brightness / 3;
-      uint16_t color = scaledEffectColor565(brightness, brightness, brightness);
-      matrix.drawPixel(stars[i].x, stars[i].y, color);
+    // Draw star if on screen and not in text area
+    int pixelX = (int)round(stars[i].x);
+    int pixelY = (int)round(stars[i].y);
+    
+    if (pixelX >= 0 && pixelX < MATRIX_WIDTH && pixelY >= 0 && pixelY < MATRIX_HEIGHT) {
+      if (!isInTextArea(pixelX, pixelY)) {
+        uint8_t brightness = stars[i].twinkleState ? stars[i].brightness : stars[i].brightness / 3;
+        uint16_t color = scaledEffectColor565(brightness, brightness, brightness);
+        matrix.drawPixel(pixelX, pixelY, color);
+      }
     }
   }
 }
@@ -1945,6 +2094,7 @@ void initializeSystem() {
   initializeRain();        // Blue rain
   initializeTorrent();     // Heavy rain
   initializeStars();
+  initializeShootingStars();
   initializeSparkles();
   initializeFireworks();
   initializeTron();         // Tron light trails
