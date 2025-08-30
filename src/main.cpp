@@ -3,6 +3,7 @@
 #include <Wire.h>
 #include <RTClib.h>
 #include <EEPROM.h>
+#include "SettingsManager.h"
 
 // ===============================================
 // CONFIGURATION & CONSTANTS
@@ -74,16 +75,6 @@ uint8_t oePin      = 15;
 #define BUTTON_REPEAT_DELAY 150     // Initial delay before repeat starts
 #define BUTTON_REPEAT_RATE 80       // Repeat rate when holding button
 
-// EEPROM Settings
-#define EEPROM_SIZE 64              // Size in bytes
-#define EEPROM_MAGIC 0x42           // Magic number to verify valid data
-#define EEPROM_ADDR_MAGIC 0         // Address for magic number
-#define EEPROM_ADDR_TEXT_SIZE 1     // Address for text size
-#define EEPROM_ADDR_BRIGHTNESS 2    // Address for brightness index
-#define EEPROM_ADDR_EFFECT_MODE 3   // Address for effect mode
-#define EEPROM_ADDR_TIME_FORMAT 4   // Address for time format (12/24 hour)
-#define EEPROM_ADDR_CLOCK_COLOR 5   // Address for clock color mode
-
 // ===============================================
 // DATA STRUCTURES & ENUMS
 // ===============================================
@@ -97,37 +88,6 @@ enum AppState {
   EDIT_CLOCK_COLOR,
   EDIT_EFFECTS, 
   TIME_SET 
-};
-
-enum EffectMode { 
-  EFFECT_CONFETTI, 
-  EFFECT_ACID,
-  EFFECT_RAIN,
-  EFFECT_TORRENT,
-  EFFECT_STARS,
-  EFFECT_SPARKLES,
-  EFFECT_FIREWORKS,
-  EFFECT_TRON,
-  EFFECT_OFF 
-};
-
-enum ClockColorMode {
-  CLOCK_WHITE,
-  CLOCK_RED,
-  CLOCK_GREEN,
-  CLOCK_BLUE,
-  CLOCK_YELLOW,
-  CLOCK_CYAN,
-  CLOCK_MAGENTA,
-  CLOCK_ORANGE,
-  CLOCK_PURPLE,
-  CLOCK_PINK,
-  CLOCK_LIME,
-  CLOCK_TEAL,
-  CLOCK_INDIGO,
-  CLOCK_GOLD,
-  CLOCK_SILVER,
-  CLOCK_RAINBOW
 };
 
 enum SetClockStep { 
@@ -213,18 +173,14 @@ Adafruit_Protomatter matrix(
   MATRIX_WIDTH, BIT_DEPTH, 1, rgbPins,
   4, addrPins, clockPin, latchPin, oePin, true);
 RTC_DS3231 rtc;
+SettingsManager settings;
 
 // Display Settings
-int textSize = 2;
-int brightnessIndex = 9;  // Default to brightness level 10 (100%)
-bool use24HourFormat = true;  // Default to 24-hour format
 uint16_t textColors[BRIGHTNESS_LEVELS] = { 0x2104, 0x4208, 0x630C, 0x8410, 0xA514, 0xC618, 0xE71C, 0xEF5D, 0xF79E, 0xFFFF };
 float brightnessLevels[BRIGHTNESS_LEVELS] = { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0 };
 
 // State Variables
 AppState appState = SHOW_TIME;
-EffectMode effectMode = EFFECT_CONFETTI;
-ClockColorMode clockColorMode = CLOCK_WHITE;
 SetClockStep setStep = NONE;
 // Button configuration
 const int buttonPins[] = {19, 18, 5};  // UP, DOWN, ENTER
@@ -363,7 +319,7 @@ int getTimeStringWidth(int textSize) {
  * Apply global brightness scaling to any color
  */
 uint16_t applyBrightness(uint16_t color) {
-  float brightness = brightnessLevels[brightnessIndex];
+  float brightness = brightnessLevels[settings.getBrightnessIndex()];
   
   // Extract RGB components from RGB565
   uint8_t r = (color >> 11) & 0x1F;
@@ -386,10 +342,10 @@ uint16_t applyEffectBrightness(uint16_t color) {
   float brightness;
   
   // Use minimum brightness + 1 unless already at maximum
-  if (brightnessIndex == BRIGHTNESS_LEVELS - 1) {
-    brightness = brightnessLevels[brightnessIndex];  // Use max brightness
+  if (settings.getBrightnessIndex() == BRIGHTNESS_LEVELS - 1) {
+    brightness = brightnessLevels[settings.getBrightnessIndex()];  // Use max brightness
   } else {
-    brightness = brightnessLevels[brightnessIndex + 1];  // Use brightness + 1
+    brightness = brightnessLevels[settings.getBrightnessIndex() + 1];  // Use brightness + 1
   }
   
   // Extract RGB components from RGB565
@@ -431,7 +387,7 @@ uint16_t scaleBrightness(uint16_t color, float factor) {
  * Apply brightness to RGB888 values and convert to RGB565
  */
 uint16_t scaledColor565(uint8_t r, uint8_t g, uint8_t b) {
-  float brightness = brightnessLevels[brightnessIndex];
+  float brightness = brightnessLevels[settings.getBrightnessIndex()];
   
   // Scale by brightness
   r = (uint8_t)(r * brightness);
@@ -448,10 +404,10 @@ uint16_t scaledEffectColor565(uint8_t r, uint8_t g, uint8_t b) {
   float brightness;
   
   // Use minimum brightness + 1 unless already at maximum
-  if (brightnessIndex == BRIGHTNESS_LEVELS - 1) {
-    brightness = brightnessLevels[brightnessIndex];  // Use max brightness
+  if (settings.getBrightnessIndex() == BRIGHTNESS_LEVELS - 1) {
+    brightness = brightnessLevels[settings.getBrightnessIndex()];  // Use max brightness
   } else {
-    brightness = brightnessLevels[brightnessIndex + 1];  // Use brightness + 1
+    brightness = brightnessLevels[settings.getBrightnessIndex() + 1];  // Use brightness + 1
   }
   
   // Scale by brightness
@@ -466,7 +422,7 @@ uint16_t scaledEffectColor565(uint8_t r, uint8_t g, uint8_t b) {
  * Get the current clock color based on clock color mode
  */
 uint16_t getClockColor() {
-  switch (clockColorMode) {
+  switch (settings.getClockColorMode()) {
     case CLOCK_WHITE:
       return applyBrightness(matrix.color565(255, 255, 255));
     case CLOCK_RED:
@@ -520,76 +476,6 @@ uint16_t getClockColor() {
       }
     default:
       return applyBrightness(matrix.color565(255, 255, 255));
-  }
-}
-
-// ===============================================
-// EEPROM FUNCTIONS
-// ===============================================
-
-/**
- * Save current settings to EEPROM
- */
-void saveSettings() {
-  EEPROM.write(EEPROM_ADDR_MAGIC, EEPROM_MAGIC);
-  EEPROM.write(EEPROM_ADDR_TEXT_SIZE, textSize);
-  EEPROM.write(EEPROM_ADDR_BRIGHTNESS, brightnessIndex);
-  EEPROM.write(EEPROM_ADDR_EFFECT_MODE, (uint8_t)effectMode);
-  EEPROM.write(EEPROM_ADDR_TIME_FORMAT, use24HourFormat ? 1 : 0);
-  EEPROM.write(EEPROM_ADDR_CLOCK_COLOR, (uint8_t)clockColorMode);
-  EEPROM.commit();
-  
-  Serial.println("Settings saved to EEPROM");
-  Serial.print("Text Size: "); Serial.println(textSize);
-  Serial.print("Brightness: "); Serial.println(brightnessIndex + 1);
-  Serial.print("Effect Mode: "); Serial.println((int)effectMode);
-  Serial.print("Time Format: "); Serial.println(use24HourFormat ? "24H" : "12H");
-  Serial.print("Clock Color: "); Serial.println((int)clockColorMode);
-}
-
-/**
- * Load settings from EEPROM
- */
-void loadSettings() {
-  uint8_t magic = EEPROM.read(EEPROM_ADDR_MAGIC);
-  
-  if (magic == EEPROM_MAGIC) {
-    // Valid EEPROM data found, load settings
-    uint8_t savedTextSize = EEPROM.read(EEPROM_ADDR_TEXT_SIZE);
-    uint8_t savedBrightness = EEPROM.read(EEPROM_ADDR_BRIGHTNESS);
-    uint8_t savedEffectMode = EEPROM.read(EEPROM_ADDR_EFFECT_MODE);
-    uint8_t savedTimeFormat = EEPROM.read(EEPROM_ADDR_TIME_FORMAT);
-    uint8_t savedClockColor = EEPROM.read(EEPROM_ADDR_CLOCK_COLOR);
-    
-    // Validate ranges before applying
-    if (savedTextSize >= TEXT_SIZE_MIN && savedTextSize <= TEXT_SIZE_MAX) {
-      textSize = savedTextSize;
-    }
-    
-    if (savedBrightness < BRIGHTNESS_LEVELS) {
-      brightnessIndex = savedBrightness;
-    }
-    
-    if (savedEffectMode < EFFECT_OPTIONS) {
-      effectMode = (EffectMode)savedEffectMode;
-    }
-    
-    if (savedClockColor <= CLOCK_RAINBOW) {
-      clockColorMode = (ClockColorMode)savedClockColor;
-    }
-    
-    use24HourFormat = (savedTimeFormat == 1);
-    
-    Serial.println("Settings loaded from EEPROM");
-    Serial.print("Text Size: "); Serial.println(textSize);
-    Serial.print("Brightness: "); Serial.println(brightnessIndex + 1);
-    Serial.print("Effect Mode: "); Serial.println((int)effectMode);
-    Serial.print("Time Format: "); Serial.println(use24HourFormat ? "24H" : "12H");
-    Serial.print("Clock Color: "); Serial.println((int)clockColorMode);
-  } else {
-    Serial.println("No valid EEPROM data found, using defaults");
-    // Save default settings to EEPROM for next time
-    saveSettings();
   }
 }
 
@@ -750,11 +636,11 @@ void resetConfettiParticle(int index) {
  * Get the bounding box of the current time display (main clock only)
  */
 void getTimeDisplayBounds(int &x1, int &y1, int &x2, int &y2) {
-  int timeWidth = getTimeStringWidth(textSize);
-  int timeHeight = 8 * textSize;
+  int timeWidth = getTimeStringWidth(settings.getTextSize());
+  int timeHeight = 8 * settings.getTextSize();
   
   x1 = (MATRIX_WIDTH - timeWidth) / 2 - 2;  // Add 2 pixel padding
-  y1 = getCenteredY(textSize) - 2;
+  y1 = getCenteredY(settings.getTextSize()) - 2;
   x2 = x1 + timeWidth + 4;  // Add 4 pixels total padding
   y2 = y1 + timeHeight + 4;
   
@@ -769,7 +655,7 @@ void getTimeDisplayBounds(int &x1, int &y1, int &x2, int &y2) {
  * Get the bounding box of the AM/PM indicator
  */
 void getAMPMDisplayBounds(int &x1, int &y1, int &x2, int &y2) {
-  if (use24HourFormat) {
+  if (settings.getUse24HourFormat()) {
     // No AM/PM in 24-hour format
     x1 = y1 = x2 = y2 = 0;
     return;
@@ -800,7 +686,7 @@ bool isInTextArea(int x, int y) {
   }
   
   // Check AM/PM area if in 12-hour format
-  if (!use24HourFormat) {
+  if (!settings.getUse24HourFormat()) {
     getAMPMDisplayBounds(x1, y1, x2, y2);
     if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
       return true;
@@ -1220,7 +1106,7 @@ void updateFireworks() {
       if (currentTime > fireworks[i].startTime) {
         // Choose launch and explosion position to avoid text area
         int textCenterX = MATRIX_WIDTH / 2;
-        int textCenterY = getCenteredY(textSize);
+        int textCenterY = getCenteredY(settings.getTextSize());
         
         // Launch from sides or center, but explode away from text
         if (random(0, 2) == 0) {
@@ -1443,7 +1329,7 @@ void drawTextBackground() {
   matrix.fillRect(x1, y1, x2 - x1 + 1, y2 - y1 + 1, 0x0000);
   
   // Draw background for AM/PM if in 12-hour format
-  if (!use24HourFormat) {
+  if (!settings.getUse24HourFormat()) {
     getAMPMDisplayBounds(x1, y1, x2, y2);
     matrix.fillRect(x1, y1, x2 - x1 + 1, y2 - y1 + 1, 0x0000);
   }
@@ -1453,7 +1339,7 @@ void drawTextBackground() {
  * Render background effects
  */
 void renderEffects() {
-  switch (effectMode) {
+  switch (settings.getEffectMode()) {
     case EFFECT_CONFETTI:
       updateConfetti();
       drawTextBackground();  // Draw black background behind text
@@ -1584,19 +1470,19 @@ void displayMainMenu() {
   // Add current values to menu items
   switch (menuIndex) {
     case 0: // Text Size
-      sprintf(menuLine + strlen(menuLine), " (%d)", textSize);
+      sprintf(menuLine + strlen(menuLine), " (%d)", settings.getTextSize());
       break;
     case 1: // Brightness
-      sprintf(menuLine + strlen(menuLine), " (%d)", brightnessIndex + 1);
+      sprintf(menuLine + strlen(menuLine), " (%d)", settings.getBrightnessIndex() + 1);
       break;
     case 2: // Time Format
-      sprintf(menuLine + strlen(menuLine), " (%s)", use24HourFormat ? "24H" : "12H");
+      sprintf(menuLine + strlen(menuLine), " (%s)", settings.getUse24HourFormat() ? "24H" : "12H");
       break;
     case 3: // Clock Color
-      sprintf(menuLine + strlen(menuLine), " (%s)", clockColorNames[clockColorMode]);
+      sprintf(menuLine + strlen(menuLine), " (%s)", clockColorNames[settings.getClockColorMode()]);
       break;
     case 4: // Effects
-      sprintf(menuLine + strlen(menuLine), " (%s)", effectNames[effectMode]);
+      sprintf(menuLine + strlen(menuLine), " (%s)", effectNames[settings.getEffectMode()]);
       break;
   }
   
@@ -1625,11 +1511,11 @@ void handleMainMenuInput() {
         appState = EDIT_TIME_FORMAT; 
         break;
       case 3: 
-        clockColorMenuIndex = clockColorMode;
+        clockColorMenuIndex = settings.getClockColorMode();
         appState = EDIT_CLOCK_COLOR;
         break;
       case 4: 
-        effectMenuIndex = effectMode;
+        effectMenuIndex = settings.getEffectMode();
         appState = EDIT_EFFECTS;
         break;
       case 5: // Set Clock
@@ -1671,13 +1557,13 @@ void handleMainMenuInput() {
  */
 void displayEffectsMenu() {
   // Store current effect mode
-  EffectMode originalMode = effectMode;
+  EffectMode originalMode = settings.getEffectMode();
   
   // Temporarily set effect mode to preview the selected effect
-  effectMode = (EffectMode)effectMenuIndex;
+  settings.setEffectMode((EffectMode)effectMenuIndex);
   
   // Render the preview effect
-  if (effectMode != EFFECT_OFF) {
+  if (settings.getEffectMode() != EFFECT_OFF) {
     renderEffects();
   } else {
     // Clear screen for "off" effect
@@ -1685,14 +1571,14 @@ void displayEffectsMenu() {
   }
   
   // Restore original effect mode
-  effectMode = originalMode;
+  settings.setEffectMode(originalMode);
   
   // Draw menu text on top
   char menuLine[32];
   strcpy(menuLine, effectNames[effectMenuIndex]);
   
   // Add indicator if this is the currently active effect
-  if (effectMenuIndex == effectMode) {
+  if (effectMenuIndex == settings.getEffectMode()) {
     sprintf(menuLine + strlen(menuLine), " *");
   }
   
@@ -1710,8 +1596,8 @@ void handleEffectsMenuInput() {
     effectMenuIndex = (effectMenuIndex - 1 + EFFECT_OPTIONS) % EFFECT_OPTIONS;
   }
   if (btnEnter.justPressed && !btnEnter.isRepeating) {
-    effectMode = (EffectMode)effectMenuIndex;
-    saveSettings();  // Save the new effect mode
+    settings.setEffectMode((EffectMode)effectMenuIndex);
+    settings.saveSettings();  // Save the new effect mode
     appState = MENU;
   }
 }
@@ -1721,7 +1607,7 @@ void handleEffectsMenuInput() {
  */
 void displayTextSizeMenu() {
   char settingStr[24];
-  sprintf(settingStr, "Text Size: %d", textSize);
+  sprintf(settingStr, "Text Size: %d", settings.getTextSize());
   drawCenteredTextWithBox(settingStr, 1, applyBrightness(0xF81F));  // Purple with brightness scaling
 }
 
@@ -1731,12 +1617,12 @@ void displayTextSizeMenu() {
 void handleTextSizeInput() {
   bool settingsChanged = false;
   
-  if (btnUp.justPressed && textSize < TEXT_SIZE_MAX) {
-    textSize++;
+  if (btnUp.justPressed && settings.getTextSize() < TEXT_SIZE_MAX) {
+    settings.setTextSize(settings.getTextSize() + 1);
     settingsChanged = true;
   }
-  if (btnDown.justPressed && textSize > TEXT_SIZE_MIN) {
-    textSize--;
+  if (btnDown.justPressed && settings.getTextSize() > TEXT_SIZE_MIN) {
+    settings.setTextSize(settings.getTextSize() - 1);
     settingsChanged = true;
   }
   if (btnEnter.justPressed && !btnEnter.isRepeating) {
@@ -1745,7 +1631,7 @@ void handleTextSizeInput() {
   
   // Save settings if they changed
   if (settingsChanged) {
-    saveSettings();
+    settings.saveSettings();
   }
 }
 
@@ -1754,7 +1640,7 @@ void handleTextSizeInput() {
  */
 void displayBrightnessMenu() {
   char settingStr[24];
-  sprintf(settingStr, "Brightness: %d", brightnessIndex + 1);
+  sprintf(settingStr, "Brightness: %d", settings.getBrightnessIndex() + 1);
   drawCenteredTextWithBox(settingStr, 1, applyBrightness(0xF81F));  // Purple with brightness scaling
 }
 
@@ -1762,7 +1648,7 @@ void displayBrightnessMenu() {
  * Display the time format selection menu
  */
 void displayTimeFormatMenu() {
-  const char* formatStr = use24HourFormat ? "24 Hour" : "12 Hour";
+  const char* formatStr = settings.getUse24HourFormat() ? "24 Hour" : "12 Hour";
   char settingStr[24];
   sprintf(settingStr, "Format: %s", formatStr);
   drawCenteredTextWithBox(settingStr, 1, applyBrightness(0xF81F));  // Purple with brightness scaling
@@ -1773,8 +1659,8 @@ void displayTimeFormatMenu() {
  */
 void displayClockColorMenu() {
   // Save current mode and temporarily set to preview mode
-  ClockColorMode tempMode = clockColorMode;
-  clockColorMode = (ClockColorMode)clockColorMenuIndex;
+  ClockColorMode tempMode = settings.getClockColorMode();
+  settings.setClockColorMode((ClockColorMode)clockColorMenuIndex);
   
   // Draw preview time with fixed text size 2
   uint16_t color = getClockColor();
@@ -1785,7 +1671,7 @@ void displayClockColorMenu() {
   drawCenteredTextWithBox(clockColorNames[clockColorMenuIndex], 1, applyBrightness(0xF81F), 0x0000, nameY);  // Purple with black box
   
   // Restore original mode
-  clockColorMode = tempMode;
+  settings.setClockColorMode(tempMode);
 }
 
 /**
@@ -1794,12 +1680,12 @@ void displayClockColorMenu() {
 void handleBrightnessInput() {
   bool settingsChanged = false;
   
-  if (btnUp.justPressed && brightnessIndex < BRIGHTNESS_LEVELS - 1) {
-    brightnessIndex++;
+  if (btnUp.justPressed && settings.getBrightnessIndex() < BRIGHTNESS_LEVELS - 1) {
+    settings.setBrightnessIndex(settings.getBrightnessIndex() + 1);
     settingsChanged = true;
   }
-  if (btnDown.justPressed && brightnessIndex > 0) {
-    brightnessIndex--;
+  if (btnDown.justPressed && settings.getBrightnessIndex() > 0) {
+    settings.setBrightnessIndex(settings.getBrightnessIndex() - 1);
     settingsChanged = true;
   }
   if (btnEnter.justPressed && !btnEnter.isRepeating) {
@@ -1808,7 +1694,7 @@ void handleBrightnessInput() {
   
   // Save settings if they changed
   if (settingsChanged) {
-    saveSettings();
+    settings.saveSettings();
   }
 }
 
@@ -1819,7 +1705,7 @@ void handleTimeFormatInput() {
   bool settingsChanged = false;
   
   if ((btnUp.justPressed || btnDown.justPressed) && !(btnUp.isRepeating || btnDown.isRepeating)) {
-    use24HourFormat = !use24HourFormat;
+    settings.setUse24HourFormat(!settings.getUse24HourFormat());
     settingsChanged = true;
   }
   if (btnEnter.justPressed && !btnEnter.isRepeating) {
@@ -1828,7 +1714,7 @@ void handleTimeFormatInput() {
   
   // Save settings if they changed
   if (settingsChanged) {
-    saveSettings();
+    settings.saveSettings();
   }
 }
 
@@ -1847,8 +1733,8 @@ void handleClockColorInput() {
     settingsChanged = true;
   }
   if (btnEnter.justPressed && !btnEnter.isRepeating) {
-    clockColorMode = (ClockColorMode)clockColorMenuIndex;
-    saveSettings();
+    settings.setClockColorMode((ClockColorMode)clockColorMenuIndex);
+    settings.saveSettings();
     appState = MENU;
   }
   
@@ -1910,7 +1796,7 @@ void handleTimeSettingMode() {
     } else {
       snprintf(displayStr, sizeof(displayStr), "  :%02d:%02d", setMin, setSec);
     }
-    drawTightClock(displayStr, textSize, textColors[brightnessIndex]);
+    drawTightClock(displayStr, settings.getTextSize(), textColors[settings.getBrightnessIndex()]);
     return;
   }
   
@@ -2036,7 +1922,7 @@ void handleTimeSettingMode() {
       break;
   }
   
-  drawTightClock(displayStr, textSize, textColors[brightnessIndex]);
+  drawTightClock(displayStr, settings.getTextSize(), textColors[settings.getBrightnessIndex()]);
 }
 
 // ===============================================
@@ -2050,12 +1936,8 @@ void initializeSystem() {
   Serial.begin(9600);
   Serial.println("Matrix Sign Starting...");
   
-  // Initialize EEPROM
-  EEPROM.begin(EEPROM_SIZE);
-  Serial.println("EEPROM initialized");
-  
-  // Load saved settings
-  loadSettings();
+  // Initialize settings manager
+  settings.begin();
   
   // Initialize buttons
   pinMode(PIN_BTN_UP, INPUT_PULLUP);
@@ -2072,8 +1954,8 @@ void initializeSystem() {
   Serial.println("Matrix initialized successfully");
   
   matrix.setTextWrap(false);
-  matrix.setTextColor(textColors[brightnessIndex]);
-  matrix.setTextSize(textSize);
+  matrix.setTextColor(textColors[settings.getBrightnessIndex()]);
+  matrix.setTextSize(settings.getTextSize());
   
   // Initialize RTC
   Wire.begin();
@@ -2125,7 +2007,7 @@ void updateDisplay() {
         String ampmStr = "";
         
         // Convert to 12-hour format if needed
-        if (!use24HourFormat) {
+        if (!settings.getUse24HourFormat()) {
           isPM = (hour >= 12);
           if (hour == 0) {
             hour = 12;  // Midnight is 12 AM
@@ -2133,7 +2015,7 @@ void updateDisplay() {
             hour -= 12;  // Convert PM hours
           }
           // Use short form (A/P) for text size 3 to avoid corner collision
-          if (textSize == 3) {
+          if (settings.getTextSize() == 3) {
             ampmStr = isPM ? "P" : "A";
           } else {
             ampmStr = isPM ? "PM" : "AM";
@@ -2142,10 +2024,10 @@ void updateDisplay() {
         
         snprintf(timeStr, sizeof(timeStr), "%02d:%02d:%02d", 
                 hour, now.minute(), now.second());
-        drawTightClock(timeStr, textSize, getClockColor());
+        drawTightClock(timeStr, settings.getTextSize(), getClockColor());
         
         // Display AM/PM in bottom right if using 12-hour format
-        if (!use24HourFormat) {
+        if (!settings.getUse24HourFormat()) {
           matrix.setTextSize(1);  // Small text for AM/PM
           
           // Position in bottom right corner
