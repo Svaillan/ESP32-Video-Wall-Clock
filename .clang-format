@@ -1,0 +1,58 @@
+# .clang-format configuration for ESP32 embedded C++ project
+# Based on Google style with embedded-friendly modifications
+
+BasedOnStyle: Google
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+
+# Line length (common for embedded projects)
+ColumnLimit: 100
+
+# Function and class formatting
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+
+# Braces
+BreakBeforeBraces: Attach
+Cpp11BracedListStyle: true
+
+# Spacing
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+
+# Pointers and references
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+# Include sorting (good for embedded projects)
+SortIncludes: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  # Arduino/ESP32 libraries first
+  - Regex: '^<(Arduino|Wire|SPI|WiFi|EEPROM)\.h>'
+    Priority: 1
+  # External libraries
+  - Regex: '^<[[:alnum:]_]+\.h>'
+    Priority: 2
+  # Project headers
+  - Regex: '^"[[:alnum:]_]+\.h"'
+    Priority: 3
+
+# Embedded-friendly settings
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+BinPackArguments: true
+BinPackParameters: true
+
+# Preprocessor
+IndentPPDirectives: None

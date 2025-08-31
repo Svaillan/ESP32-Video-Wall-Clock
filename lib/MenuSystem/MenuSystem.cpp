@@ -1,26 +1,31 @@
 #include "MenuSystem.h"
 
 // Static menu data
-const char* MenuSystem::menuItems[] = { "Text Size", "Brightness", "Time Format", "Clock Color", "Effects", "Set Clock", "Exit" };
+const char* MenuSystem::menuItems[] = {"Text Size", "Brightness", "Time Format", "Clock Color",
+                                       "Effects",   "Set Clock",  "Exit"};
 const int MenuSystem::MENU_ITEMS = sizeof(menuItems) / sizeof(menuItems[0]);
-const char* MenuSystem::effectNames[] = {"Confetti", "Acid", "Rain", "Torrent", "Stars", "Sparkles", "Fireworks", "Tron", "Off"};
+const char* MenuSystem::effectNames[] = {"Confetti", "Acid",      "Rain", "Torrent", "Stars",
+                                         "Sparkles", "Fireworks", "Tron", "Off"};
 const int MenuSystem::EFFECT_OPTIONS = sizeof(effectNames) / sizeof(effectNames[0]);
-const char* MenuSystem::clockColorNames[] = {"White", "Red", "Green", "Blue", "Yellow", "Cyan", "Magenta", "Orange", "Purple", "Pink", "Lime", "Teal", "Indigo", "Gold", "Silver", "Rainbow"};
+const char* MenuSystem::clockColorNames[] = {
+    "White",  "Red",  "Green", "Blue", "Yellow", "Cyan", "Magenta", "Orange",
+    "Purple", "Pink", "Lime",  "Teal", "Indigo", "Gold", "Silver",  "Rainbow"};
 const int MenuSystem::CLOCK_COLOR_OPTIONS = sizeof(clockColorNames) / sizeof(clockColorNames[0]);
 
-MenuSystem::MenuSystem(MatrixDisplayManager* displayManager, SettingsManager* settingsManager, 
-                       ButtonManager* buttonManager, EffectsEngine* effectsEngine, RTC_DS3231* rtcInstance) {
+MenuSystem::MenuSystem(MatrixDisplayManager* displayManager, SettingsManager* settingsManager,
+                       ButtonManager* buttonManager, EffectsEngine* effectsEngine,
+                       RTC_DS3231* rtcInstance) {
     display = displayManager;
     settings = settingsManager;
     buttons = buttonManager;
     effects = effectsEngine;
     rtc = rtcInstance;
-    
+
     // Initialize menu state
     menuIndex = 0;
     effectMenuIndex = 0;
     clockColorMenuIndex = 0;
-    
+
     // Initialize time setting state
     setHour = 0;
     setMin = 0;
@@ -30,7 +35,7 @@ MenuSystem::MenuSystem(MatrixDisplayManager* displayManager, SettingsManager* se
     lastEnterPress = 0;
     entryLockProcessed = false;
     setStep = NONE;
-    
+
     // Initialize menu entry state
     blockMenuReentry = false;
     enterPressTime = 0;
@@ -46,10 +51,10 @@ void MenuSystem::reset() {
     blockMenuReentry = true;
     enterPressTime = 0;
     wasPressed = false;
-    
+
     // Reset menu state
     menuIndex = 0;
-    
+
     // Reset time setting state
     inSetMode = false;
     setStep = NONE;
@@ -58,7 +63,8 @@ void MenuSystem::reset() {
 
 void MenuSystem::handleMenuEntry() {
     if (blockMenuReentry) {
-        if (!buttons->isEnterPressed()) blockMenuReentry = false;
+        if (!buttons->isEnterPressed())
+            blockMenuReentry = false;
     } else {
         if (buttons->isEnterPressed() && !wasPressed) {
             enterPressTime = millis();
@@ -79,35 +85,38 @@ bool MenuSystem::shouldEnterMenu() {
     if (blockMenuReentry || wasPressed || enterPressTime == 0) {
         return false;
     }
-    
+
     uint32_t timeSincePress = millis() - enterPressTime;
-    return (timeSincePress < 1000 && timeSincePress > 50); // Small debounce
+    return (timeSincePress < 1000 && timeSincePress > 50);  // Small debounce
 }
 
 void MenuSystem::displayMainMenu() {
     char menuLine[32];
     strcpy(menuLine, menuItems[menuIndex]);
-    
+
     // Add current values to menu items
     switch (menuIndex) {
-        case 0: // Text Size
+        case 0:  // Text Size
             sprintf(menuLine + strlen(menuLine), " (%d)", settings->getTextSize());
             break;
-        case 1: // Brightness
+        case 1:  // Brightness
             sprintf(menuLine + strlen(menuLine), " (%d)", settings->getBrightnessIndex() + 1);
             break;
-        case 2: // Time Format
-            sprintf(menuLine + strlen(menuLine), " (%s)", settings->getUse24HourFormat() ? "24H" : "12H");
+        case 2:  // Time Format
+            sprintf(menuLine + strlen(menuLine), " (%s)",
+                    settings->getUse24HourFormat() ? "24H" : "12H");
             break;
-        case 3: // Clock Color
-            sprintf(menuLine + strlen(menuLine), " (%s)", clockColorNames[settings->getClockColorMode()]);
+        case 3:  // Clock Color
+            sprintf(menuLine + strlen(menuLine), " (%s)",
+                    clockColorNames[settings->getClockColorMode()]);
             break;
-        case 4: // Effects
+        case 4:  // Effects
             sprintf(menuLine + strlen(menuLine), " (%s)", effectNames[settings->getEffectMode()]);
             break;
     }
-    
-    display->drawCenteredTextWithBox(menuLine, 1, display->applyBrightness(0xF81F));  // Purple menus with brightness scaling
+
+    display->drawCenteredTextWithBox(
+        menuLine, 1, display->applyBrightness(0xF81F));  // Purple menus with brightness scaling
 }
 
 void MenuSystem::handleMainMenuInput() {
@@ -119,37 +128,36 @@ void MenuSystem::handleMainMenuInput() {
     }
     if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating()) {
         switch (menuIndex) {
-            case 0: 
+            case 0:
                 // Will transition to EDIT_TEXT_SIZE in main code
                 break;
-            case 1: 
+            case 1:
                 // Will transition to EDIT_BRIGHTNESS in main code
                 break;
-            case 2: 
+            case 2:
                 // Will transition to EDIT_TIME_FORMAT in main code
                 break;
-            case 3: 
+            case 3:
                 clockColorMenuIndex = settings->getClockColorMode();
                 // Will transition to EDIT_CLOCK_COLOR in main code
                 break;
-            case 4: 
+            case 4:
                 effectMenuIndex = settings->getEffectMode();
                 // Will transition to EDIT_EFFECTS in main code
                 break;
-            case 5: // Set Clock
-                {
-                    DateTime now = rtc->now();
-                    setHour = now.hour();
-                    setMin = now.minute();
-                    setSec = now.second();
-                    setStep = SET_HOUR;
-                    inSetMode = true;
-                    timeSetEntryTime = millis();
-                    lastEnterPress = 0;
-                    entryLockProcessed = false;
-                }
-                break;
-            case 6: // Exit
+            case 5:  // Set Clock
+            {
+                DateTime now = rtc->now();
+                setHour = now.hour();
+                setMin = now.minute();
+                setSec = now.second();
+                setStep = SET_HOUR;
+                inSetMode = true;
+                timeSetEntryTime = millis();
+                lastEnterPress = 0;
+                entryLockProcessed = false;
+            } break;
+            case 6:  // Exit
                 // Will transition to SHOW_TIME in main code
                 break;
         }
@@ -159,13 +167,19 @@ void MenuSystem::handleMainMenuInput() {
 AppState MenuSystem::getNextState() {
     if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating()) {
         switch (menuIndex) {
-            case 0: return EDIT_TEXT_SIZE;
-            case 1: return EDIT_BRIGHTNESS;
-            case 2: return EDIT_TIME_FORMAT;
-            case 3: return EDIT_CLOCK_COLOR;
-            case 4: return EDIT_EFFECTS;
-            case 5: return TIME_SET;
-            case 6: 
+            case 0:
+                return EDIT_TEXT_SIZE;
+            case 1:
+                return EDIT_BRIGHTNESS;
+            case 2:
+                return EDIT_TIME_FORMAT;
+            case 3:
+                return EDIT_CLOCK_COLOR;
+            case 4:
+                return EDIT_EFFECTS;
+            case 5:
+                return TIME_SET;
+            case 6:
                 // Exiting to time display - reset menu entry state
                 blockMenuReentry = true;
                 wasPressed = false;
@@ -179,13 +193,13 @@ AppState MenuSystem::getNextState() {
 void MenuSystem::displayEffectsMenu() {
     // Store current effect mode
     EffectMode originalMode = settings->getEffectMode();
-    
+
     // Temporarily set effect mode to preview the selected effect
     settings->setEffectMode((EffectMode)effectMenuIndex);
-    
+
     // Enable menu preview mode for correct text bounding
     effects->setMenuPreviewMode(true, 1);
-    
+
     // Render the preview effect
     if (settings->getEffectMode() != EFFECT_OFF) {
         effects->updateEffects();
@@ -194,23 +208,24 @@ void MenuSystem::displayEffectsMenu() {
         // Clear screen for "off" effect
         display->fillScreen(0);
     }
-    
+
     // Disable menu preview mode
     effects->setMenuPreviewMode(false);
-    
+
     // Restore original effect mode
     settings->setEffectMode(originalMode);
-    
+
     // Draw menu text on top
     char menuLine[32];
     strcpy(menuLine, effectNames[effectMenuIndex]);
-    
+
     // Add indicator if this is the currently active effect
     if (effectMenuIndex == settings->getEffectMode()) {
         sprintf(menuLine + strlen(menuLine), " *");
     }
-    
-    display->drawCenteredTextWithBox(menuLine, 1, display->applyBrightness(0xF81F));  // Purple with brightness scaling
+
+    display->drawCenteredTextWithBox(
+        menuLine, 1, display->applyBrightness(0xF81F));  // Purple with brightness scaling
 }
 
 void MenuSystem::handleEffectsMenuInput() {
@@ -237,12 +252,13 @@ AppState MenuSystem::getEffectsMenuNextState() {
 void MenuSystem::displayTextSizeMenu() {
     char settingStr[24];
     sprintf(settingStr, "Text Size: %d", settings->getTextSize());
-    display->drawCenteredTextWithBox(settingStr, 1, display->applyBrightness(0xF81F));  // Purple with brightness scaling
+    display->drawCenteredTextWithBox(
+        settingStr, 1, display->applyBrightness(0xF81F));  // Purple with brightness scaling
 }
 
 void MenuSystem::handleTextSizeInput() {
     bool settingsChanged = false;
-    
+
     if (buttons->isUpJustPressed() && settings->getTextSize() < TEXT_SIZE_MAX) {
         settings->setTextSize(settings->getTextSize() + 1);
         settingsChanged = true;
@@ -254,7 +270,7 @@ void MenuSystem::handleTextSizeInput() {
     if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating()) {
         // Will transition back to MENU in main code
     }
-    
+
     // Save settings if they changed
     if (settingsChanged) {
         settings->saveSettings();
@@ -271,12 +287,13 @@ AppState MenuSystem::getTextSizeMenuNextState() {
 void MenuSystem::displayBrightnessMenu() {
     char settingStr[24];
     sprintf(settingStr, "Brightness: %d", settings->getBrightnessIndex() + 1);
-    display->drawCenteredTextWithBox(settingStr, 1, display->applyBrightness(0xF81F));  // Purple with brightness scaling
+    display->drawCenteredTextWithBox(
+        settingStr, 1, display->applyBrightness(0xF81F));  // Purple with brightness scaling
 }
 
 void MenuSystem::handleBrightnessInput() {
     bool settingsChanged = false;
-    
+
     if (buttons->isUpJustPressed() && settings->getBrightnessIndex() < BRIGHTNESS_LEVELS - 1) {
         settings->setBrightnessIndex(settings->getBrightnessIndex() + 1);
         settingsChanged = true;
@@ -288,7 +305,7 @@ void MenuSystem::handleBrightnessInput() {
     if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating()) {
         // Will transition back to MENU in main code
     }
-    
+
     // Save settings if they changed
     if (settingsChanged) {
         settings->saveSettings();
@@ -306,20 +323,22 @@ void MenuSystem::displayTimeFormatMenu() {
     const char* formatStr = settings->getUse24HourFormat() ? "24 Hour" : "12 Hour";
     char settingStr[24];
     sprintf(settingStr, "Format: %s", formatStr);
-    display->drawCenteredTextWithBox(settingStr, 1, display->applyBrightness(0xF81F));  // Purple with brightness scaling
+    display->drawCenteredTextWithBox(
+        settingStr, 1, display->applyBrightness(0xF81F));  // Purple with brightness scaling
 }
 
 void MenuSystem::handleTimeFormatInput() {
     bool settingsChanged = false;
-    
-    if ((buttons->isUpJustPressed() || buttons->isDownJustPressed()) && !(buttons->isUpRepeating() || buttons->isDownRepeating())) {
+
+    if ((buttons->isUpJustPressed() || buttons->isDownJustPressed()) &&
+        !(buttons->isUpRepeating() || buttons->isDownRepeating())) {
         settings->setUse24HourFormat(!settings->getUse24HourFormat());
         settingsChanged = true;
     }
     if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating()) {
         // Will transition back to MENU in main code
     }
-    
+
     // Save settings if they changed
     if (settingsChanged) {
         settings->saveSettings();
@@ -337,22 +356,24 @@ void MenuSystem::displayClockColorMenu() {
     // Save current mode and temporarily set to preview mode
     ClockColorMode tempMode = settings->getClockColorMode();
     settings->setClockColorMode((ClockColorMode)clockColorMenuIndex);
-    
+
     // Draw preview time with fixed text size 2
     uint16_t color = display->getClockColor();
     display->drawTightClock("12:34:56", 2, color);
-    
+
     // Show the color name at the bottom
     int nameY = MATRIX_HEIGHT - 9;
-    display->drawCenteredTextWithBox(clockColorNames[clockColorMenuIndex], 1, display->applyBrightness(0xF81F), 0x0000, nameY);  // Purple with black box
-    
+    display->drawCenteredTextWithBox(clockColorNames[clockColorMenuIndex], 1,
+                                     display->applyBrightness(0xF81F), 0x0000,
+                                     nameY);  // Purple with black box
+
     // Restore original mode
     settings->setClockColorMode(tempMode);
 }
 
 void MenuSystem::handleClockColorInput() {
     bool settingsChanged = false;
-    
+
     if (buttons->isDownJustPressed()) {
         clockColorMenuIndex = (clockColorMenuIndex + 1) % CLOCK_COLOR_OPTIONS;
         settingsChanged = true;
@@ -366,7 +387,7 @@ void MenuSystem::handleClockColorInput() {
         settings->saveSettings();
         // Will transition back to MENU in main code
     }
-    
+
     // Update the preview immediately
     if (settingsChanged) {
         // No need to save here since we only save on ENTER
@@ -385,24 +406,23 @@ void MenuSystem::handleTimeSettingMode() {
     static uint32_t lastBlink = 0;
     static bool debugPrinted = false;
     static SetClockStep lastSetStep = NONE;
-    
+
     if (setStep != lastSetStep) {
         debugPrinted = false;
         lastSetStep = setStep;
     }
-    
-    if (!debugPrinted) {
-        debugPrinted = true;
-    }
-    
+
+    debugPrinted = true;
+
     // Handle blinking at 500ms intervals
     if (millis() - lastBlink > 500) {
         blinkState = !blinkState;
         lastBlink = millis();
     }
-    
+
     // Button lock on initial entry to prevent menu bleed-through
-    if (setStep == SET_HOUR && !entryLockProcessed && millis() - timeSetEntryTime < BUTTON_LOCK_DURATION) {
+    if (setStep == SET_HOUR && !entryLockProcessed &&
+        millis() - timeSetEntryTime < BUTTON_LOCK_DURATION) {
         // Just display during lock period, don't process buttons
         char displayStr[12];
         if (blinkState) {
@@ -410,61 +430,69 @@ void MenuSystem::handleTimeSettingMode() {
         } else {
             snprintf(displayStr, sizeof(displayStr), "  :%02d:%02d", setMin, setSec);
         }
-        display->drawTightClock(displayStr, settings->getTextSize(), display->getTextColors()[settings->getBrightnessIndex()]);
+        display->drawTightClock(displayStr, settings->getTextSize(),
+                                display->getTextColors()[settings->getBrightnessIndex()]);
         return;
     }
-    
+
     // Mark entry lock as processed after first check
     if (setStep == SET_HOUR && !entryLockProcessed) {
         entryLockProcessed = true;
     }
-    
+
     // Handle button inputs - allow repeating for scrolling, but consume each press
     if (buttons->isUpJustPressed()) {
         buttons->clearUpJustPressed();  // Immediately consume the button press
         Serial.print("UP pressed (consumed)! ");
         switch (setStep) {
-            case SET_HOUR:   
-                setHour = (setHour + 1) % 24; 
-                Serial.print("Hour: "); Serial.println(setHour);
+            case SET_HOUR:
+                setHour = (setHour + 1) % 24;
+                Serial.print("Hour: ");
+                Serial.println(setHour);
                 break;
-            case SET_MINUTE: 
-                setMin = (setMin + 1) % 60; 
-                Serial.print("Minute: "); Serial.println(setMin);
+            case SET_MINUTE:
+                setMin = (setMin + 1) % 60;
+                Serial.print("Minute: ");
+                Serial.println(setMin);
                 break;
-            case SET_SECOND: 
-                setSec = (setSec + 1) % 60; 
-                Serial.print("Second: "); Serial.println(setSec);
+            case SET_SECOND:
+                setSec = (setSec + 1) % 60;
+                Serial.print("Second: ");
+                Serial.println(setSec);
                 break;
         }
     }
-    
+
     if (buttons->isDownJustPressed()) {
         buttons->clearDownJustPressed();  // Immediately consume the button press
         Serial.print("DOWN pressed (consumed)! ");
         switch (setStep) {
-            case SET_HOUR:   
-                setHour = (setHour + 23) % 24; 
-                Serial.print("Hour: "); Serial.println(setHour);
+            case SET_HOUR:
+                setHour = (setHour + 23) % 24;
+                Serial.print("Hour: ");
+                Serial.println(setHour);
                 break;
-            case SET_MINUTE: 
-                setMin = (setMin + 59) % 60; 
-                Serial.print("Minute: "); Serial.println(setMin);
+            case SET_MINUTE:
+                setMin = (setMin + 59) % 60;
+                Serial.print("Minute: ");
+                Serial.println(setMin);
                 break;
-            case SET_SECOND: 
-                setSec = (setSec + 59) % 60; 
-                Serial.print("Second: "); Serial.println(setSec);
+            case SET_SECOND:
+                setSec = (setSec + 59) % 60;
+                Serial.print("Second: ");
+                Serial.println(setSec);
                 break;
         }
     }
-    
+
     // Handle field progression
-    if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating() && millis() - lastEnterPress > 150) {
+    if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating() &&
+        millis() - lastEnterPress > 150) {
         buttons->clearEnterJustPressed();  // Consume the button press
         lastEnterPress = millis();
         Serial.print("ENTER pressed in time setting! Current step: ");
         Serial.println(setStep);
-        
+
         switch (setStep) {
             case SET_HOUR:
                 setStep = SET_MINUTE;
@@ -485,7 +513,7 @@ void MenuSystem::handleTimeSettingMode() {
                 break;
         }
     }
-    
+
     // Display time with appropriate blinking field (this should run every frame)
     char displayStr[12];
     switch (setStep) {
@@ -514,8 +542,9 @@ void MenuSystem::handleTimeSettingMode() {
             snprintf(displayStr, sizeof(displayStr), "%02d:%02d:%02d", setHour, setMin, setSec);
             break;
     }
-    
-    display->drawTightClock(displayStr, settings->getTextSize(), display->getTextColors()[settings->getBrightnessIndex()]);
+
+    display->drawTightClock(displayStr, settings->getTextSize(),
+                            display->getTextColors()[settings->getBrightnessIndex()]);
 }
 
 AppState MenuSystem::getTimeSettingNextState() {
@@ -541,37 +570,37 @@ void MenuSystem::handleInput(AppState& appState) {
                 wasPressed = false;
             }
             break;
-            
+
         case MENU:
             handleMainMenuInput();
             appState = getNextState();
             break;
-            
+
         case EDIT_TEXT_SIZE:
             handleTextSizeInput();
             appState = getTextSizeMenuNextState();
             break;
-            
+
         case EDIT_BRIGHTNESS:
             handleBrightnessInput();
             appState = getBrightnessMenuNextState();
             break;
-            
+
         case EDIT_TIME_FORMAT:
             handleTimeFormatInput();
             appState = getTimeFormatMenuNextState();
             break;
-            
+
         case EDIT_CLOCK_COLOR:
             handleClockColorInput();
             appState = getClockColorMenuNextState();
             break;
-            
+
         case EDIT_EFFECTS:
             handleEffectsMenuInput();
             appState = getEffectsMenuNextState();
             break;
-            
+
         case TIME_SET:
             handleTimeSettingMode();
             appState = getTimeSettingNextState();
@@ -582,37 +611,37 @@ void MenuSystem::handleInput(AppState& appState) {
 void MenuSystem::updateDisplay(AppState appState) {
     switch (appState) {
         case MENU:
-            buttons->setAllowButtonRepeat(false); // Disable repeating for menu navigation
+            buttons->setAllowButtonRepeat(false);  // Disable repeating for menu navigation
             displayMainMenu();
             break;
-            
+
         case EDIT_TEXT_SIZE:
-            buttons->setAllowButtonRepeat(false); // Disable repeating for text size menu
+            buttons->setAllowButtonRepeat(false);  // Disable repeating for text size menu
             displayTextSizeMenu();
             break;
-            
+
         case EDIT_BRIGHTNESS:
-            buttons->setAllowButtonRepeat(false); // Disable repeating for brightness menu
+            buttons->setAllowButtonRepeat(false);  // Disable repeating for brightness menu
             displayBrightnessMenu();
             break;
-            
+
         case EDIT_TIME_FORMAT:
-            buttons->setAllowButtonRepeat(false); // Disable repeating for time format menu
+            buttons->setAllowButtonRepeat(false);  // Disable repeating for time format menu
             displayTimeFormatMenu();
             break;
-            
+
         case EDIT_CLOCK_COLOR:
-            buttons->setAllowButtonRepeat(false); // Disable repeating for clock color menu
+            buttons->setAllowButtonRepeat(false);  // Disable repeating for clock color menu
             displayClockColorMenu();
             break;
-            
+
         case EDIT_EFFECTS:
-            buttons->setAllowButtonRepeat(false); // Disable repeating for effects menu
+            buttons->setAllowButtonRepeat(false);  // Disable repeating for effects menu
             displayEffectsMenu();
             break;
-            
+
         case TIME_SET:
-            buttons->setAllowButtonRepeat(true); // Enable repeating for time setting
+            buttons->setAllowButtonRepeat(true);  // Enable repeating for time setting
             handleTimeSettingMode();
             break;
     }

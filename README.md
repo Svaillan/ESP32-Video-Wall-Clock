@@ -18,7 +18,7 @@ A feature-rich digital clock display using an ESP32 microcontroller and a 128x32
 ### Background Effects (8 Options)
 - **Confetti**: Colorful falling particles
 - **Acid Rain**: Green digital rain effect
-- **Rain**: Blue water-like droplets  
+- **Rain**: Blue water-like droplets
 - **Torrent**: Heavy rain simulation
 - **Stars**: Twinkling starfield
 - **Sparkles**: Glittering light effects
@@ -47,7 +47,7 @@ A feature-rich digital clock display using an ESP32 microcontroller and a 128x32
 ### Input Controls
 - **3 Push Buttons** for menu navigation:
   - Up Button (GPIO pin configurable)
-  - Down Button (GPIO pin configurable) 
+  - Down Button (GPIO pin configurable)
   - Select Button (GPIO pin configurable)
 
 ### Connections

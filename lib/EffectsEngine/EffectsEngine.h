@@ -2,12 +2,13 @@
 #define EFFECTS_ENGINE_H
 
 #include <Arduino.h>
+
 #include "MatrixDisplayManager.h"
 #include "SettingsManager.h"
 
 // Effect Settings
-#define NUM_CONFETTI   40
-#define CONFETTI_RAD   1
+#define NUM_CONFETTI 40
+#define CONFETTI_RAD 1
 
 #define NUM_MATRIX_DROPS 12
 #define MATRIX_CHAR_DELAY 80
@@ -36,9 +37,9 @@
 #define TRON_MAX_SPEED 200
 
 // Effect Data Structures
-struct Confetti { 
-    float x, y, vx, vy; 
-    uint16_t color; 
+struct Confetti {
+    float x, y, vx, vy;
+    uint16_t color;
 };
 
 struct MatrixDrop {
@@ -54,7 +55,7 @@ struct Star {
     uint8_t twinkleState;
     uint32_t lastTwinkle;
     uint32_t twinkleInterval;  // Individual twinkle timing for each star
-    bool shouldTwinkle;  // Whether this star twinkles or stays steady
+    bool shouldTwinkle;        // Whether this star twinkles or stays steady
 };
 
 struct ShootingStar {
@@ -85,7 +86,7 @@ struct Firework {
 
 struct TronTrail {
     uint8_t x, y;
-    uint8_t direction;  // 0=right, 1=down, 2=left, 3=up
+    uint8_t direction;                           // 0=right, 1=down, 2=left, 3=up
     uint8_t trailPositions[TRON_MAX_LENGTH][2];  // Store trail segment positions
     uint8_t currentLength;
     uint16_t color;
@@ -95,52 +96,54 @@ struct TronTrail {
 };
 
 class EffectsEngine {
-public:
+   public:
     // Constructor
     EffectsEngine(MatrixDisplayManager* display, SettingsManager* settings);
-    
+
     // Initialization
     void begin();
-    
+
     // Effect Control
     void updateEffects();
     void setMenuPreviewMode(bool isPreview, int previewTextSize = 1);
-    
+
     // Individual effect controls
     void initializeConfetti();
     void updateConfetti();
     void resetConfettiParticle(int index);
-    
+
     void initializeMatrixRain();
     void updateMatrixRain();
-    
+
     void initializeRain();
     void updateRain();
-    
+
     void initializeTorrent();
     void updateTorrent();
-    
+
     void initializeStars();
     void updateStars();
     void initializeShootingStars();
     void spawnShootingStar(int index);
-    
+
     void initializeSparkles();
     void updateSparkles();
-    
+
     void initializeFireworks();
     void updateFireworks();
-    
+
     void initializeTron();
     void updateTron();
-    
+
     // Effect names accessor
-    static const char* getEffectNames() { return "Confetti,Acid,Rain,Torrent,Stars,Sparkles,Fireworks,Tron,Off"; }
-    
-private:
+    static const char* getEffectNames() {
+        return "Confetti,Acid,Rain,Torrent,Stars,Sparkles,Fireworks,Tron,Off";
+    }
+
+   private:
     MatrixDisplayManager* display;
     SettingsManager* settings;
-    
+
     // Effect particle arrays
     Confetti confetti[NUM_CONFETTI];
     MatrixDrop matrixDrops[NUM_MATRIX_DROPS];
@@ -150,20 +153,20 @@ private:
     Sparkle sparkles[NUM_SPARKLES];
     Firework fireworks[NUM_FIREWORKS];
     TronTrail tronTrails[NUM_TRON_TRAILS];
-    
+
     // Shooting star timing variables
     uint32_t lastShootingStarTime = 0;
     bool waitingForSecondStar = false;
     uint32_t secondStarTimer = 0;
     bool waitingForThirdStar = false;
     uint32_t thirdStarTimer = 0;
-    
+
     // Menu preview mode
     bool isMenuPreviewMode = false;
     int previewTextSize = 1;
-    
+
     // Helper functions
     bool isInTextArea(int x, int y);
 };
 
-#endif // EFFECTS_ENGINE_H
+#endif  // EFFECTS_ENGINE_H

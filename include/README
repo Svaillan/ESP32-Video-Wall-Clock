@@ -3,14 +3,14 @@
 
 This directory is intended for project header files for the ESP32 LED Matrix Clock.
 
-Currently, this project implements all functionality in a single `main.cpp` file for simplicity. 
+Currently, this project implements all functionality in a single `main.cpp` file for simplicity.
 
 ## Future Header Files
 
 As the project grows, consider moving these components to separate header files:
 
 - `effects.h` - Background effect definitions and functions
-- `menu.h` - Menu system structures and handlers  
+- `menu.h` - Menu system structures and handlers
 - `colors.h` - Color definitions and utilities
 - `rtc_manager.h` - Real-time clock functionality
 - `button_handler.h` - Input processing and debouncing

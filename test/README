@@ -32,7 +32,7 @@ Future unit tests could cover:
 void test_color_brightness_scaling() {
     uint16_t color = matrix.color565(255, 255, 255);  // White
     uint16_t dimmed = scaleBrightness(color, 0.5);    // 50% brightness
-    
+
     // Extract RGB components and verify scaling
     TEST_ASSERT_EQUAL(127, ((dimmed >> 11) & 0x1F) << 3);  // Red component
 }

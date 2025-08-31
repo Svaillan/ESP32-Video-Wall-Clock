@@ -47,18 +47,23 @@ void SettingsManager::saveSettings() {
     EEPROM.write(EEPROM_ADDR_TIME_FORMAT, use24HourFormat ? 1 : 0);
     EEPROM.write(EEPROM_ADDR_CLOCK_COLOR, (uint8_t)clockColorMode);
     EEPROM.commit();
-    
+
     Serial.println("Settings saved to EEPROM");
-    Serial.print("Text Size: "); Serial.println(textSize);
-    Serial.print("Brightness: "); Serial.println(brightnessIndex + 1);
-    Serial.print("Effect Mode: "); Serial.println((int)effectMode);
-    Serial.print("Time Format: "); Serial.println(use24HourFormat ? "24H" : "12H");
-    Serial.print("Clock Color: "); Serial.println((int)clockColorMode);
+    Serial.print("Text Size: ");
+    Serial.println(textSize);
+    Serial.print("Brightness: ");
+    Serial.println(brightnessIndex + 1);
+    Serial.print("Effect Mode: ");
+    Serial.println((int)effectMode);
+    Serial.print("Time Format: ");
+    Serial.println(use24HourFormat ? "24H" : "12H");
+    Serial.print("Clock Color: ");
+    Serial.println((int)clockColorMode);
 }
 
 void SettingsManager::loadSettings() {
     uint8_t magic = EEPROM.read(EEPROM_ADDR_MAGIC);
-    
+
     if (magic == EEPROM_MAGIC) {
         // Valid EEPROM data found, load settings
         uint8_t savedTextSize = EEPROM.read(EEPROM_ADDR_TEXT_SIZE);
@@ -66,32 +71,37 @@ void SettingsManager::loadSettings() {
         uint8_t savedEffectMode = EEPROM.read(EEPROM_ADDR_EFFECT_MODE);
         uint8_t savedTimeFormat = EEPROM.read(EEPROM_ADDR_TIME_FORMAT);
         uint8_t savedClockColor = EEPROM.read(EEPROM_ADDR_CLOCK_COLOR);
-        
+
         // Validate ranges before applying
         if (isValidTextSize(savedTextSize)) {
             textSize = savedTextSize;
         }
-        
+
         if (isValidBrightnessIndex(savedBrightness)) {
             brightnessIndex = savedBrightness;
         }
-        
+
         if (isValidEffectMode(savedEffectMode)) {
             effectMode = (EffectMode)savedEffectMode;
         }
-        
+
         if (isValidClockColorMode(savedClockColor)) {
             clockColorMode = (ClockColorMode)savedClockColor;
         }
-        
+
         use24HourFormat = (savedTimeFormat == 1);
-        
+
         Serial.println("Settings loaded from EEPROM");
-        Serial.print("Text Size: "); Serial.println(textSize);
-        Serial.print("Brightness: "); Serial.println(brightnessIndex + 1);
-        Serial.print("Effect Mode: "); Serial.println((int)effectMode);
-        Serial.print("Time Format: "); Serial.println(use24HourFormat ? "24H" : "12H");
-        Serial.print("Clock Color: "); Serial.println((int)clockColorMode);
+        Serial.print("Text Size: ");
+        Serial.println(textSize);
+        Serial.print("Brightness: ");
+        Serial.println(brightnessIndex + 1);
+        Serial.print("Effect Mode: ");
+        Serial.println((int)effectMode);
+        Serial.print("Time Format: ");
+        Serial.println(use24HourFormat ? "24H" : "12H");
+        Serial.print("Clock Color: ");
+        Serial.println((int)clockColorMode);
     } else {
         Serial.println("No valid EEPROM data found, using defaults");
         // Save default settings to EEPROM for next time
