@@ -9,9 +9,9 @@
 #define PIN_BTN_ENTER  18
 
 // Timing Constants
-#define DEBOUNCE_DELAY 15           // Reduced from 50ms for faster response
-#define BUTTON_REPEAT_DELAY 150     // Initial delay before repeat starts
-#define BUTTON_REPEAT_RATE 80       // Repeat rate when holding button
+#define DEBOUNCE_DELAY 10           // Reduced from 15ms for even faster response
+#define BUTTON_REPEAT_DELAY 120     // Reduced from 150ms - faster repeat start
+#define BUTTON_REPEAT_RATE 60       // Reduced from 80ms - faster repeat rate
 
 struct ButtonState {
   uint8_t pin;

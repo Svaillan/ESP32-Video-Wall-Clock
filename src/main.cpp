@@ -33,8 +33,8 @@ uint8_t oePin      = 15;
 #define BRIGHTNESS_LEVELS 10
 
 // Timing Constants
-#define MENU_DELAY 30
-#define CLOCK_UPDATE_DELAY 10
+// (MENU_DELAY now defined in MenuSystem.h)
+// (UPDATE_DELAY now defined in AppStateManager.h)
 
 // ===============================================
 // DATA STRUCTURES & ENUMS

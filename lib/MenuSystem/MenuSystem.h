@@ -9,7 +9,7 @@
 #include "EffectsEngine.h"
 
 // Menu timing constants
-#define MENU_DELAY 30               // Reduced from 50ms 
+#define MENU_DELAY 20               // Reduced from 30ms for snappier response 
 
 // Application states
 enum AppState { 
@@ -58,7 +58,7 @@ private:
     int setHour, setMin, setSec;
     bool inSetMode;
     uint32_t timeSetEntryTime;
-    const uint32_t BUTTON_LOCK_DURATION = 1000;
+    const uint32_t BUTTON_LOCK_DURATION = 750;  // Reduced from 1000ms for faster access
     uint32_t lastEnterPress;
     const uint32_t ENTER_COOLDOWN = 300;
     bool entryLockProcessed;

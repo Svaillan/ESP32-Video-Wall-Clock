@@ -47,8 +47,8 @@ private:
     void renderMenus();
     
     // Timing constants
-    static const uint32_t CLOCK_UPDATE_DELAY = 10;
-    static const uint32_t APP_MENU_DELAY = 30;
+    static const uint32_t CLOCK_UPDATE_DELAY = 5;   // Reduced from 10ms for more responsive buttons
+    static const uint32_t APP_MENU_DELAY = 20;      // Reduced from 30ms for snappier menu response
     
     // State tracking variables
     bool blockMenuReentry;

@@ -459,7 +459,7 @@ void MenuSystem::handleTimeSettingMode() {
     }
     
     // Handle field progression
-    if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating() && millis() - lastEnterPress > 200) {
+    if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating() && millis() - lastEnterPress > 150) {
         buttons->clearEnterJustPressed();  // Consume the button press
         lastEnterPress = millis();
         Serial.print("ENTER pressed in time setting! Current step: ");
