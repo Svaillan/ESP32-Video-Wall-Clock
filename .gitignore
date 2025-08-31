@@ -62,5 +62,33 @@ Thumbs.db
 *.idb
 *.pdb
 
-# Project specific
-# Add any project-specific files you want to ignore here
+# Pre-commit cache
+.pre-commit-cache/
+
+# Python virtual environments
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PlatformIO test results
+test_results/
+test_report.json
+
+# Documentation build artifacts
+docs/_build/
+docs/html/
+docs/latex/
+
+# Hardware debugging files
+*.trace
+*.swo
+*.jlink
+
+# Firmware versions/releases (if you build release versions)
+firmware/
+releases/
+
+# Local configuration overrides
+platformio_override.ini
+config_local.h

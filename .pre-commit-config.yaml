@@ -1,0 +1,70 @@
+repos:
+  - repo: https://gitlab.com/vojko.pribudic.foss/pre-commit-update
+    rev: v0.8.0
+    hooks:
+      - id: pre-commit-update
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.2.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+      - id: check-json
+      - id: check-yaml
+        args:
+          - --allow-multiple-documents
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v21.1.0
+    hooks:
+      - id: clang-format
+        files: \.(c|cc|cxx|cpp|h|hpp|hxx)$
+        # Uses .clang-format file in project root
+  - repo: https://github.com/pocc/pre-commit-hooks
+    rev: v1.3.5
+    hooks:
+      - id: cppcheck
+        args: [
+          '--enable=warning,style,performance,portability',
+          '--inconclusive',
+          '--suppressions-list=.cppcheck',
+          '--std=c++11',
+          '--platform=unix64',
+          '--inline-suppr'
+        ]
+        files: \.(c|cc|cxx|cpp)$
+
+  # PlatformIO specific checks
+  - repo: local
+    hooks:
+      - id: platformio-check
+        name: PlatformIO Static Analysis
+        entry: pio check
+        language: system
+        files: \.(c|cc|cxx|cpp|h|hpp|hxx|ino)$
+        pass_filenames: false
+        always_run: false
+
+      - id: platformio-test
+        name: PlatformIO Unit Tests
+        entry: pio test
+        language: system
+        files: \.(c|cc|cxx|cpp|h|hpp|hxx|ino)$
+        pass_filenames: false
+        always_run: false
+        stages: [manual]  # Only run when explicitly called
+
+      - id: platformio-build
+        name: PlatformIO Build Verification
+        entry: pio run --target checkprogsize
+        language: system
+        files: \.(c|cc|cxx|cpp|h|hpp|hxx|ino|ini)$
+        pass_filenames: false
+        always_run: false

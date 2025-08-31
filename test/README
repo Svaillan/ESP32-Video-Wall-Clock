@@ -1,53 +1,102 @@
 
 # Test Directory
 
-This directory is intended for PlatformIO Test Runner and unit tests for the ESP32 LED Matrix Clock project.
+This directory is intended for **PlatformIO Test Runner** and unit tests for the ESP32 LED Matrix Clock project.
 
 ## Current Status
 
-This project currently does not include unit tests, as the functionality is primarily hardware-dependent (LED matrix display, RTC module, button inputs).
+This project is **ready for comprehensive unit testing** thanks to its modular architecture. Each library can be tested independently.
 
-## Potential Test Areas
+## Testing Strategy
 
-Future unit tests could cover:
+### 🧪 **Unit Testing Opportunities**
 
-### Pure Functions
-- **Color Utilities**: RGB to 565 conversion, brightness scaling
-- **Time Formatting**: 12/24 hour conversion, string formatting
-- **Mathematics**: Particle physics calculations for effects
-- **Menu Logic**: State transitions and input validation
+#### **Pure Logic Testing** (No Hardware Required)
+- **`ClockDisplay`**: Time formatting, 12/24 hour conversion, text sizing logic
+- **`SettingsManager`**: Configuration validation, EEPROM data structures
+- **`MenuSystem`**: Navigation logic, menu state transitions
+- **`EffectsEngine`**: Particle physics calculations, color transformations
+- **`ButtonManager`**: Debouncing algorithms, input state management
 
-### Mock Testing
-- **Button Input**: Simulated button press sequences
-- **Menu Navigation**: Complete menu traversal tests
-- **Settings Persistence**: EEPROM read/write validation
-- **Effect Systems**: Particle behavior verification
+#### **Mock Testing** (Simulated Hardware)
+- **`MatrixDisplayManager`**: Display commands, brightness scaling
+- **`AppStateManager`**: State transitions, mode switching
+- **Integration Testing**: Complete user workflow simulation
 
-## Example Test Structure
+### 🏗️ **Test Structure**
 
 ```cpp
 #include <unity.h>
-#include "main.cpp"
+#include <ClockDisplay.h>
+#include <SettingsManager.h>
 
-void test_color_brightness_scaling() {
-    uint16_t color = matrix.color565(255, 255, 255);  // White
-    uint16_t dimmed = scaleBrightness(color, 0.5);    // 50% brightness
-    
-    // Extract RGB components and verify scaling
-    TEST_ASSERT_EQUAL(127, ((dimmed >> 11) & 0x1F) << 3);  // Red component
+// Example: Test time format conversion
+void test_12h_conversion() {
+    ClockDisplay display;
+
+    // Test midnight
+    TEST_ASSERT_EQUAL(12, display.convert24to12(0));
+    TEST_ASSERT_TRUE(display.isAM(0));
+
+    // Test noon
+    TEST_ASSERT_EQUAL(12, display.convert24to12(12));
+    TEST_ASSERT_FALSE(display.isAM(12));
+
+    // Test 1 PM
+    TEST_ASSERT_EQUAL(1, display.convert24to12(13));
+    TEST_ASSERT_FALSE(display.isAM(13));
 }
 
-void test_time_format_conversion() {
-    // Test 24h to 12h conversion
-    TEST_ASSERT_EQUAL(12, convert24to12(0));   // Midnight -> 12 AM
-    TEST_ASSERT_EQUAL(1, convert24to12(13));   // 1 PM
-    TEST_ASSERT_EQUAL(12, convert24to12(12));  // Noon -> 12 PM
+// Example: Test settings validation
+void test_settings_validation() {
+    SettingsManager settings;
+
+    // Valid brightness range
+    TEST_ASSERT_TRUE(settings.isValidBrightness(5));
+    TEST_ASSERT_FALSE(settings.isValidBrightness(11));
+
+    // Valid color indices
+    TEST_ASSERT_TRUE(settings.isValidColor(15));
+    TEST_ASSERT_FALSE(settings.isValidColor(20));
 }
 
 void setup() {
     UNITY_BEGIN();
-    RUN_TEST(test_color_brightness_scaling);
-    RUN_TEST(test_time_format_conversion);
+    RUN_TEST(test_12h_conversion);
+    RUN_TEST(test_settings_validation);
+    UNITY_END();
+}
+
+void loop() {
+    // Empty for unit tests
+}
+```
+
+### 🚀 **Getting Started with Testing**
+
+1. **Install Unity Testing Framework**:
+   ```bash
+   pio test
+   ```
+
+2. **Create Test Files**:
+   - `test_clock_display.cpp` - Time formatting tests
+   - `test_settings_manager.cpp` - Configuration tests
+   - `test_menu_system.cpp` - Navigation tests
+   - `test_effects_engine.cpp` - Animation logic tests
+
+3. **Run Tests**:
+   ```bash
+   pio test --environment esp32dev
+   ```
+
+## Benefits of Modular Testing
+
+✅ **Isolated Testing** - Each library can be tested independently
+✅ **Fast Feedback** - Pure logic tests run quickly without hardware
+✅ **Regression Prevention** - Automated tests catch breaking changes
+✅ **Documentation** - Tests serve as usage examples
+✅ **Quality Assurance** - Ensures code reliability and maintainability
     UNITY_END();
 }
 

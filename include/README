@@ -3,20 +3,38 @@
 
 This directory is intended for project header files for the ESP32 LED Matrix Clock.
 
-Currently, this project implements all functionality in a single `main.cpp` file for simplicity. 
+## Current Status
 
-## Future Header Files
+This project has been **refactored into a modular architecture** with separate libraries in the `lib/` directory. Each module has its own header and implementation files.
 
-As the project grows, consider moving these components to separate header files:
+## Architecture Overview
 
-- `effects.h` - Background effect definitions and functions
-- `menu.h` - Menu system structures and handlers  
-- `colors.h` - Color definitions and utilities
-- `rtc_manager.h` - Real-time clock functionality
-- `button_handler.h` - Input processing and debouncing
-- `display.h` - Matrix display utilities and text rendering
+The modular design includes these components:
 
-## Usage
+### Core Libraries (in `lib/` directory)
+- **`AppStateManager/`** - Centralized application state management
+- **`ButtonManager/`** - Input handling with debouncing and repeat functionality
+- **`ClockDisplay/`** - Time rendering, formatting, and display logic
+- **`EffectsEngine/`** - Background animation system with particle effects
+- **`MatrixDisplayManager/`** - Hardware abstraction layer for HUB75 interface
+- **`MenuSystem/`** - Navigation, configuration, and user interface
+- **`SettingsManager/`** - Persistent configuration storage with EEPROM
+
+### Global Headers (if needed)
+This directory can be used for:
+- **`config.h`** - Global configuration constants and pin definitions
+- **`types.h`** - Shared data structures and type definitions
+- **`version.h`** - Project version information
+
+## Benefits of Modular Architecture
+- ✅ **Separation of Concerns** - Each module has a single responsibility
+- ✅ **Reusability** - Libraries can be used in other projects
+- ✅ **Maintainability** - Easier to debug and extend functionality
+- ✅ **Testing** - Individual modules can be unit tested
+- ✅ **Collaboration** - Multiple developers can work on different modules
+
+## Adding New Headers
+Place global header files here if they need to be shared across multiple libraries.
 
 Header files should be included in `src/main.cpp` using:
 

@@ -1,0 +1,43 @@
+# Cppcheck suppressions for ESP32 embedded project
+# These suppress common false positives in Arduino/PlatformIO projects
+
+# Arduino library functions that cppcheck doesn't recognize
+missingInclude
+unmatchedSuppression
+
+# Arduino-specific suppressions
+unusedFunction:*/Arduino.h
+unusedFunction:*/Wire.h
+unusedFunction:*/SPI.h
+unusedFunction:*/EEPROM.h
+
+# PlatformIO library suppressions
+noExplicitConstructor:*/Adafruit_*
+noExplicitConstructor:*/RTClib*
+
+# Embedded-specific suppressions
+constParameter  # Often intentional in embedded for API consistency
+variableScope   # Sometimes global scope needed for interrupts
+shadowVariable  # Common in callback functions
+
+# Template and macro related
+templateRecursion
+preprocessorErrorDirective
+
+# Memory management (handled by Arduino framework)
+memleakOnRealloc
+resourceLeak
+
+# Platform specific
+unusedStructMember  # Platform-specific structs
+
+# Suppress inconclusive style warnings for embedded code
+functionConst
+functionStatic
+
+# Arrays initialized in begin() method for embedded systems
+uninitMemberVar:*/EffectsEngine/*
+
+# Type range issues common in embedded code using uint8_t
+compareValueOutOfTypeRangeError
+unsignedPositive

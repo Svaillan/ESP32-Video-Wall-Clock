@@ -1,21 +1,64 @@
 
 # Libraries Directory
 
-This directory is intended for project-specific (private) libraries for the ESP32 LED Matrix Clock.
+This directory contains **project-specific modular libraries** for the ESP32 LED Matrix Clock.
 
-## Current Dependencies
+## Modular Architecture
 
-This project currently uses external libraries managed by PlatformIO:
+This project implements a **professional modular architecture** with separated concerns:
 
-- **Adafruit Protomatter** - RGB LED matrix driver for HUB75 panels
-- **RTClib** - Real-time clock functionality for DS3231 module
-- **Wire** - I2C communication library
+### 📁 **Current Libraries**
 
-These are automatically downloaded and managed via `platformio.ini`.
+#### **`AppStateManager/`**
+- **Purpose**: Centralized application state management
+- **Files**: `AppStateManager.h`, `AppStateManager.cpp`
+- **Responsibilities**: Global state tracking, mode management
 
-## Custom Libraries
+#### **`ButtonManager/`**
+- **Purpose**: Input handling with advanced debouncing
+- **Files**: `ButtonManager.h`, `ButtonManager.cpp`
+- **Features**: Button debouncing, repeat functionality, state management
 
-If you create custom libraries for this project, place them here with this structure:
+#### **`ClockDisplay/`**
+- **Purpose**: Time rendering and formatting system
+- **Files**: `ClockDisplay.h`, `ClockDisplay.cpp`
+- **Features**: 12/24 hour conversion, text sizing, AM/PM handling
+
+#### **`EffectsEngine/`**
+- **Purpose**: Background animation and particle systems
+- **Files**: `EffectsEngine.h`, `EffectsEngine.cpp`
+- **Effects**: Confetti, Matrix Rain, Weather, Stars, Sparkles, Fireworks
+
+#### **`MatrixDisplayManager/`**
+- **Purpose**: Hardware abstraction for HUB75 LED matrix
+- **Files**: `MatrixDisplayManager.h`, `MatrixDisplayManager.cpp`
+- **Features**: Display control, brightness management, text masking
+
+#### **`MenuSystem/`**
+- **Purpose**: Navigation and configuration interface
+- **Files**: `MenuSystem.h`, `MenuSystem.cpp`
+- **Features**: Menu navigation, live preview, user interface
+
+#### **`SettingsManager/`**
+- **Purpose**: Persistent configuration storage
+- **Files**: `SettingsManager.h`, `SettingsManager.cpp`
+- **Features**: EEPROM persistence, settings validation
+
+## External Dependencies
+
+Managed via `platformio.ini`:
+
+- **`adafruit/Adafruit Protomatter@^1.6.4`** - RGB LED matrix driver
+- **`adafruit/RTClib@^2.1.4`** - Real-time clock support
+- **`wire`** - I2C communication
+
+## Development Benefits
+
+✅ **Modular Design** - Each library has a single, well-defined purpose
+✅ **Code Reusability** - Libraries can be used in other ESP32 projects
+✅ **Easy Testing** - Individual modules can be unit tested independently
+✅ **Maintainability** - Clear separation makes debugging and updates easier
+✅ **Scalability** - New features can be added as separate libraries
 
 ```
 lib/
