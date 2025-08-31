@@ -66,28 +66,30 @@ void MenuSystem::handleMenuEntry() {
         if (!buttons->isEnterPressed())
             blockMenuReentry = false;
     } else {
-        if (buttons->isEnterPressed() && !wasPressed) {
+        // Use justPressed logic for consistency with menu navigation
+        if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating()) {
             enterPressTime = millis();
             wasPressed = true;
-        }
-        if (!buttons->isEnterPressed() && wasPressed) {
-            if (millis() - enterPressTime < 1000) {
-                // Will transition to MENU state in main code
-            }
-            wasPressed = false;
-            blockMenuReentry = true;
+            blockMenuReentry = true;  // Prevent immediate re-entry
         }
     }
 }
 
 bool MenuSystem::shouldEnterMenu() {
-    // Don't enter menu if blocked or if we haven't recorded a valid press time
-    if (blockMenuReentry || wasPressed || enterPressTime == 0) {
+    // Check if we have a recent press recorded and not blocked
+    if (blockMenuReentry || !wasPressed || enterPressTime == 0) {
         return false;
     }
 
+    // Menu entry should happen immediately after the press is detected
+    // Add a small debounce to prevent multiple rapid entries
     uint32_t timeSincePress = millis() - enterPressTime;
-    return (timeSincePress < 1000 && timeSincePress > 50);  // Small debounce
+    if (timeSincePress > 50) {  // Small debounce period
+        wasPressed = false;     // Reset the press flag
+        return true;
+    }
+
+    return false;
 }
 
 void MenuSystem::displayMainMenu() {
