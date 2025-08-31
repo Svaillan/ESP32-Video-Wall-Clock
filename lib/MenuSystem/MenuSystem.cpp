@@ -42,8 +42,8 @@ void MenuSystem::begin() {
 }
 
 void MenuSystem::reset() {
-    // Reset all menu entry state to ensure clean start
-    blockMenuReentry = true; // Start with menu entry blocked
+    // Reset all menu entry state
+    blockMenuReentry = true;
     enterPressTime = 0;
     wasPressed = false;
     
@@ -142,25 +142,11 @@ void MenuSystem::handleMainMenuInput() {
                     setHour = now.hour();
                     setMin = now.minute();
                     setSec = now.second();
-                    setStep = SET_HOUR;  // Explicitly start at hour
+                    setStep = SET_HOUR;
                     inSetMode = true;
-                    timeSetEntryTime = millis();  // Record entry time for button lock
-                    lastEnterPress = 0;  // Reset ENTER cooldown tracking
-                    entryLockProcessed = false;  // Reset entry lock flag
-                    // Will transition to TIME_SET in main code
-                    
-                    // Debug output
-                    Serial.println("Entering time set mode");
-                    Serial.print("Starting at setStep: ");
-                    Serial.println((int)setStep);  // Cast to int for debugging
-                    Serial.print("SET_HOUR enum value: ");
-                    Serial.println((int)SET_HOUR);
-                    Serial.print("Current time: ");
-                    Serial.print(setHour); Serial.print(":");
-                    Serial.print(setMin); Serial.print(":");
-                    Serial.println(setSec);
-                    Serial.print("Entry time: ");
-                    Serial.println(timeSetEntryTime);
+                    timeSetEntryTime = millis();
+                    lastEnterPress = 0;
+                    entryLockProcessed = false;
                 }
                 break;
             case 6: // Exit
@@ -394,27 +380,12 @@ void MenuSystem::handleTimeSettingMode() {
     static bool debugPrinted = false;
     static SetClockStep lastSetStep = NONE;
     
-    // Reset debug flag if step changed
     if (setStep != lastSetStep) {
         debugPrinted = false;
         lastSetStep = setStep;
     }
     
-    // Debug output once when entering each step
     if (!debugPrinted) {
-        Serial.println("=== TIME SETTING DEBUG ===");
-        Serial.print("setStep = ");
-        Serial.print((int)setStep);
-        Serial.print(" (");
-        switch(setStep) {
-            case NONE: Serial.print("NONE"); break;
-            case SET_HOUR: Serial.print("SET_HOUR"); break;
-            case SET_MINUTE: Serial.print("SET_MINUTE"); break;
-            case SET_SECOND: Serial.print("SET_SECOND"); break;
-            case CONFIRM: Serial.print("CONFIRM"); break;
-            default: Serial.print("UNKNOWN"); break;
-        }
-        Serial.println(")");
         debugPrinted = true;
     }
     
@@ -424,7 +395,7 @@ void MenuSystem::handleTimeSettingMode() {
         lastBlink = millis();
     }
     
-    // Simple button lock ONLY on initial entry to prevent menu bleed-through
+    // Button lock on initial entry to prevent menu bleed-through
     if (setStep == SET_HOUR && !entryLockProcessed && millis() - timeSetEntryTime < BUTTON_LOCK_DURATION) {
         // Just display during lock period, don't process buttons
         char displayStr[12];
@@ -481,53 +452,8 @@ void MenuSystem::handleTimeSettingMode() {
         }
     }
     
-    // Handle field progression - ENTER only on single press with cooldown
-    if (buttons->isEnterJustPressed()) {
-        Serial.print("ENTER justPressed=true, isRepeating=");
-        Serial.print(buttons->isEnterRepeating());
-        Serial.print(", Current setStep: ");
-        Serial.print((int)setStep);
-        Serial.print(", Time since last ENTER: ");
-        Serial.print(millis() - lastEnterPress);
-        Serial.print("ms");
-        
-        if (!buttons->isEnterRepeating() && (millis() - lastEnterPress) > ENTER_COOLDOWN) {
-            buttons->clearEnterJustPressed();  // Immediately consume the button press
-            Serial.print(" -> PROCESSING (consumed) -> ");
-            lastEnterPress = millis();  // Update last press time
-            
-            switch (setStep) {
-                case SET_HOUR:   
-                    setStep = SET_MINUTE;
-                    Serial.println("SET_MINUTE");
-                    break;
-                case SET_MINUTE: 
-                    setStep = SET_SECOND;
-                    Serial.println("SET_SECOND");
-                    break;
-                case SET_SECOND: 
-                    Serial.println("EXITING");
-                    // Set the RTC time and exit
-                    DateTime rtcNow = rtc->now();
-                    DateTime newTime = DateTime(rtcNow.year(), rtcNow.month(), rtcNow.day(), setHour, setMin, setSec);
-                    rtc->adjust(newTime);
-                    
-                    // Exit time setting mode
-                    inSetMode = false;
-                    setStep = NONE;
-                    return;  // Will transition to SHOW_TIME in main code
-            }
-            // Reset blink state when changing fields
-            blinkState = true;
-            lastBlink = millis();
-        } else {
-            if (buttons->isEnterRepeating()) {
-                Serial.println(" -> IGNORING (isRepeating=true)");
-            } else {
-                Serial.println(" -> IGNORING (cooldown active)");
-            }
-        }
-    }
+    // Handle field progression
+    if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating() && millis() - lastEnterPress > 200) {
     
     // Display time with appropriate blinking field
     char displayStr[12];
@@ -559,6 +485,8 @@ void MenuSystem::handleTimeSettingMode() {
     }
     
     display->drawTightClock(displayStr, settings->getTextSize(), display->getTextColors()[settings->getBrightnessIndex()]);
+}
+
 }
 
 AppState MenuSystem::getTimeSettingNextState() {

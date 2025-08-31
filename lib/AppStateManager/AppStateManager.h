@@ -50,7 +50,7 @@ private:
     static const uint32_t CLOCK_UPDATE_DELAY = 10;
     static const uint32_t APP_MENU_DELAY = 30;
     
-    // Legacy variables (kept for compatibility)
+    // State tracking variables
     bool blockMenuReentry;
     uint32_t enterPressTime;
     bool wasPressed;

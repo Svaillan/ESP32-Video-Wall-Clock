@@ -33,7 +33,7 @@ uint8_t oePin      = 15;
 #define BRIGHTNESS_LEVELS 10
 
 // Timing Constants
-#define MENU_DELAY 30               // Reduced from 50ms 
+#define MENU_DELAY 30
 #define CLOCK_UPDATE_DELAY 10
 
 // ===============================================
@@ -64,14 +64,8 @@ uint32_t systemStartTime = 0;
 const uint32_t STARTUP_GRACE_PERIOD = 2000; // 2 seconds to stabilize
 
 // ===============================================
-// EFFECTS SYSTEM
+// UTILITY FUNCTIONS
 // ===============================================
-
-/**
- * Initialize confetti particles
- */
-
-
 
 /**
  * Get the bounding box of the current time display (main clock only)
@@ -96,14 +90,11 @@ bool isInTextArea(int x, int y) {
   return clockDisplay.isInTextArea(x, y);
 }
 
-
-
 /**
  * Render background effects
  */
 void renderEffects() {
   effects.updateEffects();
-  // Don't draw text background here - let clock display handle its own background if needed
 }
 
 // ===============================================
@@ -193,7 +184,5 @@ void loop() {
   buttons.updateAll();
   handleInput();
   updateDisplay();
-  
-  // Use AppStateManager for delay management
   appManager.processDelay();
 }

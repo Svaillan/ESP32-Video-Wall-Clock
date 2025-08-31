@@ -22,16 +22,14 @@ void ClockDisplay::displayTime() {
     // Use drawTightClock for proper centering and text size
     display->drawTightClock(timeString.c_str(), settings->getTextSize(), display->getClockColor());
     
-    // Handle AM/PM display for 12-hour format (like original code)
+    // Handle AM/PM display for 12-hour format
     if (!settings->getUse24HourFormat()) {
         displayAMPM(now);
     }
-    
-    // Don't call show() here - let main.cpp control display updates
 }
 
 String ClockDisplay::formatTime(DateTime now) {
-    char timeStr[12];  // Buffer for time string
+    char timeStr[12];
     
     if (settings->getUse24HourFormat()) {
         // 24-hour format: HH:MM:SS
@@ -53,7 +51,7 @@ void ClockDisplay::displayAMPM(DateTime now) {
     bool isPM = (hour >= 12);
     String ampmStr = "";
     
-    // Use short form (A/P) for text size 3 to avoid corner collision, like original
+    // Use short form (A/P) for text size 3 to avoid corner collision
     int textSize = settings->getTextSize();
     if (textSize == 3) {
         ampmStr = isPM ? "P" : "A";
@@ -61,11 +59,11 @@ void ClockDisplay::displayAMPM(DateTime now) {
         ampmStr = isPM ? "PM" : "AM";
     }
     
-    // Position in bottom right corner like original
-    display->setTextSize(1);  // Small text for AM/PM
+    // Position in bottom right corner
+    display->setTextSize(1);
     
-    int ampmX = 128 - (ampmStr.length() * 6) - 1;  // 6 pixels per char at size 1, MATRIX_WIDTH = 128
-    int ampmY = 32 - 8;  // 8 pixels height at size 1, MATRIX_HEIGHT = 32
+    int ampmX = 128 - (ampmStr.length() * 6) - 1;
+    int ampmY = 32 - 8;
     
     uint16_t color = display->getClockColor();
     display->setCursor(ampmX, ampmY);

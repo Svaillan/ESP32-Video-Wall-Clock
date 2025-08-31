@@ -96,7 +96,7 @@ public:
                ButtonManager* buttonManager, EffectsEngine* effectsEngine, RTC_DS3231* rtcInstance);
     
     void begin();
-    void reset(); // Reset menu system to ensure clean start
+    void reset();
     void handleInput(AppState& appState);
     void updateDisplay(AppState appState);
     
