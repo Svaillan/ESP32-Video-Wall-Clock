@@ -347,11 +347,15 @@ void MatrixDisplayManager::displayTimeWithMarquee(const char* timeStr, int textS
 
 // Display bounds and text area functions
 void MatrixDisplayManager::getTimeDisplayBounds(int &x1, int &y1, int &x2, int &y2) {
-    int timeWidth = getTimeStringWidth(settings->getTextSize());
-    int timeHeight = 8 * settings->getTextSize();
+    getTimeDisplayBounds(x1, y1, x2, y2, settings->getTextSize());
+}
+
+void MatrixDisplayManager::getTimeDisplayBounds(int &x1, int &y1, int &x2, int &y2, int textSize) {
+    int timeWidth = getTimeStringWidth(textSize);
+    int timeHeight = 8 * textSize;
     
     x1 = (MATRIX_WIDTH - timeWidth) / 2 - 2;  // Add 2 pixel padding
-    y1 = getCenteredY(settings->getTextSize()) - 2;
+    y1 = getCenteredY(textSize) - 2;
     x2 = x1 + timeWidth + 4;  // Add 4 pixels total padding
     y2 = y1 + timeHeight + 4;
     
@@ -380,11 +384,15 @@ void MatrixDisplayManager::getAMPMDisplayBounds(int &x1, int &y1, int &x2, int &
 }
 
 bool MatrixDisplayManager::isInTextArea(int x, int y, bool isShowingTime) {
+    return isInTextArea(x, y, isShowingTime, settings->getTextSize());
+}
+
+bool MatrixDisplayManager::isInTextArea(int x, int y, bool isShowingTime, int textSize) {
     if (!isShowingTime) return false;
     
     // Check main clock area
     int x1, y1, x2, y2;
-    getTimeDisplayBounds(x1, y1, x2, y2);
+    getTimeDisplayBounds(x1, y1, x2, y2, textSize);
     
     if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
         return true;
@@ -444,9 +452,13 @@ float MatrixDisplayManager::generateVelocity(float minSpeed, float maxSpeed, boo
  * Draw black background rectangles around the text areas
  */
 void MatrixDisplayManager::drawTextBackground() {
+    drawTextBackground(settings->getTextSize());
+}
+
+void MatrixDisplayManager::drawTextBackground(int textSize) {
     // Draw background for main clock
     int x1, y1, x2, y2;
-    getTimeDisplayBounds(x1, y1, x2, y2);
+    getTimeDisplayBounds(x1, y1, x2, y2, textSize);
     fillRect(x1, y1, x2 - x1 + 1, y2 - y1 + 1, 0x0000);
     
     // Draw background for AM/PM if in 12-hour format

@@ -54,9 +54,18 @@ void EffectsEngine::updateEffects() {
     }
 }
 
+void EffectsEngine::setMenuPreviewMode(bool isPreview, int previewTextSize) {
+    isMenuPreviewMode = isPreview;
+    this->previewTextSize = previewTextSize;
+}
+
 // Helper function to check if position is in text area
 bool EffectsEngine::isInTextArea(int x, int y) {
-    return display->isInTextArea(x, y, true);
+    if (isMenuPreviewMode) {
+        return display->isInTextArea(x, y, true, previewTextSize);
+    } else {
+        return display->isInTextArea(x, y, true);
+    }
 }
 
 // ===============================================

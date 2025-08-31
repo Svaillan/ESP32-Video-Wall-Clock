@@ -74,9 +74,12 @@ public:
     
     // Text area utilities
     void getTimeDisplayBounds(int &x1, int &y1, int &x2, int &y2);
+    void getTimeDisplayBounds(int &x1, int &y1, int &x2, int &y2, int textSize);
     void getAMPMDisplayBounds(int &x1, int &y1, int &x2, int &y2);
     bool isInTextArea(int x, int y, bool isShowingTime = true);
+    bool isInTextArea(int x, int y, bool isShowingTime, int textSize);
     void drawTextBackground();
+    void drawTextBackground(int textSize);
     
     // Utility functions
     float generateVelocity(float minSpeed, float maxSpeed, bool allowNegative = true);

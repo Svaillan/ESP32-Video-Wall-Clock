@@ -183,14 +183,20 @@ void MenuSystem::displayEffectsMenu() {
     // Temporarily set effect mode to preview the selected effect
     settings->setEffectMode((EffectMode)effectMenuIndex);
     
+    // Enable menu preview mode for correct text bounding
+    effects->setMenuPreviewMode(true, 1);
+    
     // Render the preview effect
     if (settings->getEffectMode() != EFFECT_OFF) {
         effects->updateEffects();
-        display->drawTextBackground();  // Draw black background behind text for all effects except OFF
+        display->drawTextBackground(1);  // Draw background for text size 1
     } else {
         // Clear screen for "off" effect
         display->fillScreen(0);
     }
+    
+    // Disable menu preview mode
+    effects->setMenuPreviewMode(false);
     
     // Restore original effect mode
     settings->setEffectMode(originalMode);

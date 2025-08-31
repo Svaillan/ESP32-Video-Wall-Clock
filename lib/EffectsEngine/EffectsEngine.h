@@ -104,6 +104,7 @@ public:
     
     // Effect Control
     void updateEffects();
+    void setMenuPreviewMode(bool isPreview, int previewTextSize = 1);
     
     // Individual effect controls
     void initializeConfetti();
@@ -156,6 +157,10 @@ private:
     uint32_t secondStarTimer = 0;
     bool waitingForThirdStar = false;
     uint32_t thirdStarTimer = 0;
+    
+    // Menu preview mode
+    bool isMenuPreviewMode = false;
+    int previewTextSize = 1;
     
     // Helper functions
     bool isInTextArea(int x, int y);
