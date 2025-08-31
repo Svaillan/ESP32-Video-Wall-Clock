@@ -163,6 +163,29 @@ We welcome contributions! This project follows modern development practices:
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed information.
 
+### **Repository Governance**
+
+This repository uses GitHub branch protection rules to maintain code quality:
+
+#### **Main Branch Protection Rules**
+- ✅ **Restrict deletions** - Main branch cannot be deleted
+- ✅ **Require pull request** - All changes must go through PR review
+  - **Required approvals**: 1 reviewer minimum
+  - **Dismiss stale reviews** when new commits are pushed
+  - **Require up-to-date branches** before merging
+- ✅ **Require status checks** - CI/CD must pass before merge
+- ✅ **Require conversation resolution** - All PR comments must be resolved
+- ✅ **Block force pushes** - Additional protection against accidental overwrites
+
+#### **Contribution Process**
+All contributors must follow this workflow:
+1. Fork the repository or create a feature branch
+2. Make changes with proper commit messages
+3. Ensure CI checks pass (code formatting, builds, tests)
+4. Create a pull request with detailed description
+5. Address review feedback and resolve conversations
+6. Wait for approval before merge
+
 ### **Development Workflow**
 ```bash
 # Create feature branch
