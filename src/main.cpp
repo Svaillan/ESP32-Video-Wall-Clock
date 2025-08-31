@@ -8,6 +8,7 @@
 #include "MatrixDisplayManager.h"
 #include "EffectsEngine.h"
 #include "MenuSystem.h"
+#include "ClockDisplay.h"
 
 // ===============================================
 // CONFIGURATION & CONSTANTS
@@ -53,6 +54,7 @@ SettingsManager settings;
 ButtonManager buttons;
 MatrixDisplayManager display(&matrix, &settings);
 EffectsEngine effects(&display, &settings);
+ClockDisplay clockDisplay(&display, &settings, &rtc);
 MenuSystem menu(&display, &settings, &buttons, &effects, &rtc);
 
 // State Variables
@@ -74,39 +76,14 @@ const uint32_t STARTUP_GRACE_PERIOD = 2000; // 2 seconds to stabilize
  * Get the bounding box of the current time display (main clock only)
  */
 void getTimeDisplayBounds(int &x1, int &y1, int &x2, int &y2) {
-  int timeWidth = display.getTimeStringWidth(settings.getTextSize());
-  int timeHeight = 8 * settings.getTextSize();
-  
-  x1 = (MATRIX_WIDTH - timeWidth) / 2 - 2;  // Add 2 pixel padding
-  y1 = display.getCenteredY(settings.getTextSize()) - 2;
-  x2 = x1 + timeWidth + 4;  // Add 4 pixels total padding
-  y2 = y1 + timeHeight + 4;
-  
-  // Ensure bounds are within screen
-  x1 = max(0, x1);
-  y1 = max(0, y1);
-  x2 = min(MATRIX_WIDTH - 1, x2);
-  y2 = min(MATRIX_HEIGHT - 1, y2);
+  clockDisplay.getTimeDisplayBounds(x1, y1, x2, y2);
 }
 
 /**
  * Get the bounding box of the AM/PM indicator
  */
 void getAMPMDisplayBounds(int &x1, int &y1, int &x2, int &y2) {
-  if (settings.getUse24HourFormat()) {
-    // No AM/PM in 24-hour format
-    x1 = y1 = x2 = y2 = 0;
-    return;
-  }
-  
-  // AM/PM area in bottom right corner
-  int ampmWidth = 2 * 6;  // 2 characters * 6 pixels each at size 1
-  int ampmHeight = 8;     // 8 pixels height at size 1
-  
-  x1 = MATRIX_WIDTH - ampmWidth - 3;  // 3 pixel padding from right edge
-  y1 = MATRIX_HEIGHT - ampmHeight - 1; // 1 pixel padding from bottom
-  x2 = MATRIX_WIDTH - 1;
-  y2 = MATRIX_HEIGHT - 1;
+  clockDisplay.getAMPMDisplayBounds(x1, y1, x2, y2);
 }
 
 /**
@@ -115,23 +92,7 @@ void getAMPMDisplayBounds(int &x1, int &y1, int &x2, int &y2) {
 bool isInTextArea(int x, int y) {
   if (appState != SHOW_TIME) return false;
   
-  // Check main clock area
-  int x1, y1, x2, y2;
-  getTimeDisplayBounds(x1, y1, x2, y2);
-  
-  if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
-    return true;
-  }
-  
-  // Check AM/PM area if in 12-hour format
-  if (!settings.getUse24HourFormat()) {
-    getAMPMDisplayBounds(x1, y1, x2, y2);
-    if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
-      return true;
-    }
-  }
-  
-  return false;
+  return clockDisplay.isInTextArea(x, y);
 }
 
 
@@ -141,7 +102,7 @@ bool isInTextArea(int x, int y) {
  */
 void renderEffects() {
   effects.updateEffects();
-  display.drawTextBackground();  // Draw black background behind text for all effects except OFF
+  // Don't draw text background here - let clock display handle its own background if needed
 }
 
 // ===============================================
@@ -189,6 +150,9 @@ void initializeSystem() {
   // Initialize effects engine
   effects.begin();
   
+  // Initialize clock display
+  clockDisplay.begin();
+  
   // Initialize menu system
   menu.begin();
   menu.reset(); // Ensure clean state on boot
@@ -213,49 +177,8 @@ void updateDisplay() {
       // Render background effects
       renderEffects();
       
-      // Display current time
-      {
-        DateTime now = rtc.now();
-        
-        int hour = now.hour();
-        bool isPM = false;
-        String ampmStr = "";
-        
-        // Convert to 12-hour format if needed
-        if (!settings.getUse24HourFormat()) {
-          isPM = (hour >= 12);
-          if (hour == 0) {
-            hour = 12;  // Midnight is 12 AM
-          } else if (hour > 12) {
-            hour -= 12;  // Convert PM hours
-          }
-          // Use short form (A/P) for text size 3 to avoid corner collision
-          if (settings.getTextSize() == 3) {
-            ampmStr = isPM ? "P" : "A";
-          } else {
-            ampmStr = isPM ? "PM" : "AM";
-          }
-        }
-        
-        char timeStr[16];
-        snprintf(timeStr, sizeof(timeStr), "%02d:%02d:%02d", 
-                hour, now.minute(), now.second());
-        display.drawTightClock(timeStr, settings.getTextSize(), display.getClockColor());
-        
-        // Display AM/PM in bottom right if using 12-hour format
-        if (!settings.getUse24HourFormat()) {
-          matrix.setTextSize(1);  // Small text for AM/PM
-          
-          // Position in bottom right corner
-          int ampmX = MATRIX_WIDTH - (ampmStr.length() * 6) - 1;  // 6 pixels per char at size 1
-          int ampmY = MATRIX_HEIGHT - 8;  // 8 pixels height at size 1
-          
-          uint16_t color = display.getClockColor();
-          matrix.setCursor(ampmX, ampmY);
-          matrix.setTextColor(color);
-          matrix.print(ampmStr);
-        }
-      }
+      // Display current time using ClockDisplay
+      clockDisplay.displayTime();
       break;
       
     default:
