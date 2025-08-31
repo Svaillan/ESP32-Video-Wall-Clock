@@ -10,7 +10,7 @@
 
 // Timing Constants
 #define DEBOUNCE_DELAY 10        // Reduced from 15ms for even faster response
-#define BUTTON_REPEAT_DELAY 120  // Reduced from 150ms - faster repeat start
+#define BUTTON_REPEAT_DELAY 500  // Increased from 120ms - longer delay before repeat starts
 #define BUTTON_REPEAT_RATE 60    // Reduced from 80ms - faster repeat rate
 
 struct ButtonState {
