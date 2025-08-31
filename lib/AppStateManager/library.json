@@ -1,0 +1,28 @@
+{
+  "name": "AppStateManager",
+  "version": "1.0.0",
+  "description": "Centralized application state management and coordination",
+  "keywords": "state, manager, coordination, esp32",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "authors": [
+    {
+      "name": "User",
+      "maintainer": true
+    }
+  ],
+  "license": "MIT",
+  "homepage": "",
+  "dependencies": {
+    "ButtonManager": "^1.0.0",
+    "SettingsManager": "^1.0.0",
+    "MatrixDisplayManager": "^1.0.0",
+    "EffectsEngine": "^1.0.0",
+    "MenuSystem": "^1.0.0",
+    "ClockDisplay": "^1.0.0"
+  },
+  "frameworks": "arduino",
+  "platforms": "espressif32"
+}

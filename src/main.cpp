@@ -9,6 +9,7 @@
 #include "EffectsEngine.h"
 #include "MenuSystem.h"
 #include "ClockDisplay.h"
+#include "AppStateManager.h"
 
 // ===============================================
 // CONFIGURATION & CONSTANTS
@@ -56,9 +57,9 @@ MatrixDisplayManager display(&matrix, &settings);
 EffectsEngine effects(&display, &settings);
 ClockDisplay clockDisplay(&display, &settings, &rtc);
 MenuSystem menu(&display, &settings, &buttons, &effects, &rtc);
+AppStateManager appManager(&buttons, &settings, &display, &effects, &menu, &clockDisplay);
 
 // State Variables
-AppState appState = SHOW_TIME;
 uint32_t systemStartTime = 0;
 const uint32_t STARTUP_GRACE_PERIOD = 2000; // 2 seconds to stabilize
 
@@ -90,7 +91,7 @@ void getAMPMDisplayBounds(int &x1, int &y1, int &x2, int &y2) {
  * Check if a point is within the text area (either main clock or AM/PM)
  */
 bool isInTextArea(int x, int y) {
-  if (appState != SHOW_TIME) return false;
+  if (appManager.getCurrentState() != SHOW_TIME) return false;
   
   return clockDisplay.isInTextArea(x, y);
 }
@@ -153,9 +154,8 @@ void initializeSystem() {
   // Initialize clock display
   clockDisplay.begin();
   
-  // Initialize menu system
-  menu.begin();
-  menu.reset(); // Ensure clean state on boot
+  // Initialize app state manager
+  appManager.begin();
   
   // Set startup time for grace period
   systemStartTime = millis();
@@ -167,27 +167,7 @@ void initializeSystem() {
  * Update the main display based on current state
  */
 void updateDisplay() {
-  // Clear screen
-  matrix.fillScreen(0);
-  
-  // Render based on current state
-  switch (appState) {
-    case SHOW_TIME:
-      buttons.setAllowButtonRepeat(false); // Disable repeating for normal clock display
-      // Render background effects
-      renderEffects();
-      
-      // Display current time using ClockDisplay
-      clockDisplay.displayTime();
-      break;
-      
-    default:
-      // Handle all menu states with MenuSystem
-      menu.updateDisplay(appState);
-      break;
-  }
-  
-  matrix.show();
+  appManager.updateDisplay();
 }
 
 /**
@@ -198,7 +178,7 @@ void handleInput() {
   if (millis() - systemStartTime < STARTUP_GRACE_PERIOD) {
     return;
   }
-  menu.handleInput(appState);
+  appManager.handleInput();
 }
 
 // ===============================================
@@ -214,10 +194,6 @@ void loop() {
   handleInput();
   updateDisplay();
   
-  // Small delay to prevent overwhelming the display
-  if (appState == SHOW_TIME) {
-    delay(CLOCK_UPDATE_DELAY);
-  } else {
-    delay(menu.getMenuDelay());
-  }
+  // Use AppStateManager for delay management
+  appManager.processDelay();
 }
