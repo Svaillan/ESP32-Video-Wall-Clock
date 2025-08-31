@@ -53,6 +53,8 @@ struct Star {
     uint8_t brightness;
     uint8_t twinkleState;
     uint32_t lastTwinkle;
+    uint32_t twinkleInterval;  // Individual twinkle timing for each star
+    bool shouldTwinkle;  // Whether this star twinkles or stays steady
 };
 
 struct ShootingStar {
@@ -152,6 +154,8 @@ private:
     uint32_t lastShootingStarTime = 0;
     bool waitingForSecondStar = false;
     uint32_t secondStarTimer = 0;
+    bool waitingForThirdStar = false;
+    uint32_t thirdStarTimer = 0;
     
     // Helper functions
     bool isInTextArea(int x, int y);

@@ -263,6 +263,16 @@ void EffectsEngine::initializeStars() {
         stars[i].brightness = random(50, 255);
         stars[i].twinkleState = random(0, 2);
         stars[i].lastTwinkle = millis() + random(0, 2000);
+        stars[i].twinkleInterval = random(800, 2000);  // Set individual twinkle timing
+        
+        // 40% chance for a star to be a steady background star (doesn't twinkle)
+        stars[i].shouldTwinkle = (random(0, 100) < 60);  // 60% twinkle, 40% steady
+        
+        // Background stars are dimmer and stay at low brightness
+        if (!stars[i].shouldTwinkle) {
+            stars[i].brightness = random(30, 80);  // Dimmer range for background stars
+            stars[i].twinkleState = 0;  // Always dim
+        }
     }
 }
 
@@ -271,6 +281,8 @@ void EffectsEngine::initializeShootingStars() {
         shootingStars[i].active = false;
     }
     lastShootingStarTime = millis();
+    waitingForSecondStar = false;
+    waitingForThirdStar = false;
 }
 
 void EffectsEngine::spawnShootingStar(int index) {
@@ -334,10 +346,10 @@ void EffectsEngine::updateStars() {
                 spawnShootingStar(i);
                 lastShootingStarTime = currentTime;
                 
-                // 30% chance for a second shooting star
-                if (random(0, 100) < 30) {
+                // 50% chance for a second shooting star
+                if (random(0, 100) < 50) {
                     waitingForSecondStar = true;
-                    secondStarTimer = currentTime + random(2000, 5000);  // 2-5 seconds later
+                    secondStarTimer = currentTime + random(500, 5000);  // 0.5-5 seconds later
                 }
                 break;
             }
@@ -350,6 +362,23 @@ void EffectsEngine::updateStars() {
             if (!shootingStars[i].active) {
                 spawnShootingStar(i);
                 waitingForSecondStar = false;
+                
+                // 15% chance for a third shooting star
+                if (random(0, 100) < 15) {
+                    waitingForThirdStar = true;
+                    thirdStarTimer = currentTime + random(500, 5000);  // 0.5-5 seconds later
+                }
+                break;
+            }
+        }
+    }
+    
+    // Check for third shooting star
+    if (waitingForThirdStar && currentTime >= thirdStarTimer) {
+        for (int i = 0; i < NUM_SHOOTING_STARS; i++) {
+            if (!shootingStars[i].active) {
+                spawnShootingStar(i);
+                waitingForThirdStar = false;
                 break;
             }
         }
@@ -384,10 +413,12 @@ void EffectsEngine::updateStars() {
     
     // Draw regular stars
     for (int i = 0; i < NUM_STARS; i++) {
-        // Handle twinkling
-        if (currentTime - stars[i].lastTwinkle > random(800, 2000)) {
+        // Handle twinkling - only for stars that should twinkle
+        if (stars[i].shouldTwinkle && currentTime - stars[i].lastTwinkle > stars[i].twinkleInterval) {
             stars[i].twinkleState = !stars[i].twinkleState;
             stars[i].lastTwinkle = currentTime;
+            // Set new random interval for next twinkle
+            stars[i].twinkleInterval = random(800, 2000);
         }
         
         // Draw star if on screen and not in text area
@@ -396,7 +427,14 @@ void EffectsEngine::updateStars() {
         
         if (pixelX >= 0 && pixelX < MATRIX_WIDTH && pixelY >= 0 && pixelY < MATRIX_HEIGHT) {
             if (!isInTextArea(pixelX, pixelY)) {
-                uint8_t brightness = stars[i].twinkleState ? stars[i].brightness : stars[i].brightness / 3;
+                uint8_t brightness;
+                if (stars[i].shouldTwinkle) {
+                    // Twinkling stars: bright when on, dim when off
+                    brightness = stars[i].twinkleState ? stars[i].brightness : stars[i].brightness / 3;
+                } else {
+                    // Steady background stars: always at their base dim brightness
+                    brightness = stars[i].brightness;
+                }
                 uint16_t color = display->scaledEffectColor565(brightness, brightness, brightness);
                 display->drawPixel(pixelX, pixelY, color);
             }
