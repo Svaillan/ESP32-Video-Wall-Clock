@@ -56,7 +56,17 @@ jobs:
     - name: Build PlatformIO Project
       run: pio run
 
+    - name: Check for test files
+      id: check_tests
+      run: |
+        if find test -name "*.cpp" -o -name "*.c" | grep -q .; then
+          echo "tests_exist=true" >> $GITHUB_OUTPUT
+        else
+          echo "tests_exist=false" >> $GITHUB_OUTPUT
+        fi
+
     - name: Run PlatformIO Tests
+      if: steps.check_tests.outputs.tests_exist == 'true'
       run: pio test
 
   build-matrix:
