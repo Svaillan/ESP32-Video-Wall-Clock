@@ -60,7 +60,7 @@ public:
     // Text positioning utilities
     int getCenteredY(int textSize);
     int getCenteredX(const char* text, int textSize);
-    int getTimeStringWidth(int textSize);
+    int getTimeStringWidth(int textSize);  // For HH:MM:SS format
     
     // Text drawing utilities
     void drawCenteredText(const char* text, int textSize, uint16_t color, int y = -1);
@@ -70,16 +70,26 @@ public:
     // Text area management
     TextAreaInfo getTextAreaInfo(const char* text, int textSize);
     bool doesTextFit(const char* text, int textSize);
-    void displayTimeWithMarquee(const char* timeStr, int textSize, uint16_t color, int& scrollX, int& scrollDirection, unsigned long lastScrollTime, int scrollSpeed);
+    void displayTextWithMarquee(const char* text, int textSize, uint16_t color, int& scrollX, int& scrollDirection, unsigned long lastScrollTime, int scrollSpeed);
+    
+    // Legacy compatibility functions for clock-specific naming
+    void displayTimeWithMarquee(const char* timeStr, int textSize, uint16_t color, int& scrollX, int& scrollDirection, unsigned long lastScrollTime, int scrollSpeed) { 
+        displayTextWithMarquee(timeStr, textSize, color, scrollX, scrollDirection, lastScrollTime, scrollSpeed); 
+    }
     
     // Text area utilities
-    void getTimeDisplayBounds(int &x1, int &y1, int &x2, int &y2);
-    void getTimeDisplayBounds(int &x1, int &y1, int &x2, int &y2, int textSize);
-    void getAMPMDisplayBounds(int &x1, int &y1, int &x2, int &y2);
-    bool isInTextArea(int x, int y, bool isShowingTime = true);
-    bool isInTextArea(int x, int y, bool isShowingTime, int textSize);
+    void getMainTextBounds(int &x1, int &y1, int &x2, int &y2);
+    void getMainTextBounds(int &x1, int &y1, int &x2, int &y2, int textSize);
+    void getAuxiliaryTextBounds(int &x1, int &y1, int &x2, int &y2);
+    bool isInTextArea(int x, int y, bool hasText = true);
+    bool isInTextArea(int x, int y, bool hasText, int textSize);
     void drawTextBackground();
     void drawTextBackground(int textSize);
+    
+    // Legacy clock-specific functions (for compatibility)
+    void getTimeDisplayBounds(int &x1, int &y1, int &x2, int &y2) { getMainTextBounds(x1, y1, x2, y2); }
+    void getTimeDisplayBounds(int &x1, int &y1, int &x2, int &y2, int textSize) { getMainTextBounds(x1, y1, x2, y2, textSize); }
+    void getAMPMDisplayBounds(int &x1, int &y1, int &x2, int &y2) { getAuxiliaryTextBounds(x1, y1, x2, y2); }
     
     // Utility functions
     float generateVelocity(float minSpeed, float maxSpeed, bool allowNegative = true);

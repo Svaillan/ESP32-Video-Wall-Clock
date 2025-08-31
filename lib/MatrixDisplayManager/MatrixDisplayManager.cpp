@@ -279,7 +279,7 @@ void MatrixDisplayManager::drawCenteredTextWithBox(const char* text, int textSiz
 }
 
 int MatrixDisplayManager::getTimeStringWidth(int textSize) {
-    // 6 digits * 6 pixels + 2 colons with custom spacing
+    // 6 digits * 6 pixels + 2 colons with custom spacing (HH:MM:SS format)
     int digitWidth = 6 * textSize;
     int colonSpacing = 2 * textSize;  // Reduced spacing for colons
     return (6 * digitWidth) + (2 * colonSpacing);
@@ -309,7 +309,7 @@ bool MatrixDisplayManager::doesTextFit(const char* text, int textSize) {
     return (info.width <= MATRIX_WIDTH && info.height <= MATRIX_HEIGHT);
 }
 
-void MatrixDisplayManager::displayTimeWithMarquee(const char* timeStr, int textSize, uint16_t color, int& scrollX, int& scrollDirection, unsigned long lastScrollTime, int scrollSpeed) {
+void MatrixDisplayManager::displayTextWithMarquee(const char* text, int textSize, uint16_t color, int& scrollX, int& scrollDirection, unsigned long lastScrollTime, int scrollSpeed) {
     static unsigned long lastUpdate = 0;
     
     // Check if it's time to update scroll position
@@ -317,8 +317,8 @@ void MatrixDisplayManager::displayTimeWithMarquee(const char* timeStr, int textS
         lastUpdate = millis();
         
         // Only scroll if text doesn't fit
-        if (!doesTextFit(timeStr, textSize)) {
-            TextAreaInfo info = getTextAreaInfo(timeStr, textSize);
+        if (!doesTextFit(text, textSize)) {
+            TextAreaInfo info = getTextAreaInfo(text, textSize);
             
             // Update scroll position
             if (scrollDirection == 1) {  // Moving right
@@ -334,7 +334,7 @@ void MatrixDisplayManager::displayTimeWithMarquee(const char* timeStr, int textS
             }
         } else {
             // Text fits, center it
-            scrollX = getCenteredX(timeStr, textSize);
+            scrollX = getCenteredX(text, textSize);
         }
     }
     
@@ -342,15 +342,15 @@ void MatrixDisplayManager::displayTimeWithMarquee(const char* timeStr, int textS
     matrix->setTextSize(textSize);
     matrix->setTextColor(color);
     matrix->setCursor(scrollX, getCenteredY(textSize));
-    matrix->print(timeStr);
+    matrix->print(text);
 }
 
 // Display bounds and text area functions
-void MatrixDisplayManager::getTimeDisplayBounds(int &x1, int &y1, int &x2, int &y2) {
-    getTimeDisplayBounds(x1, y1, x2, y2, settings->getTextSize());
+void MatrixDisplayManager::getMainTextBounds(int &x1, int &y1, int &x2, int &y2) {
+    getMainTextBounds(x1, y1, x2, y2, settings->getTextSize());
 }
 
-void MatrixDisplayManager::getTimeDisplayBounds(int &x1, int &y1, int &x2, int &y2, int textSize) {
+void MatrixDisplayManager::getMainTextBounds(int &x1, int &y1, int &x2, int &y2, int textSize) {
     int timeWidth = getTimeStringWidth(textSize);
     int timeHeight = 8 * textSize;
     
@@ -366,7 +366,7 @@ void MatrixDisplayManager::getTimeDisplayBounds(int &x1, int &y1, int &x2, int &
     y2 = min(MATRIX_HEIGHT - 1, y2);
 }
 
-void MatrixDisplayManager::getAMPMDisplayBounds(int &x1, int &y1, int &x2, int &y2) {
+void MatrixDisplayManager::getAuxiliaryTextBounds(int &x1, int &y1, int &x2, int &y2) {
     if (settings->getUse24HourFormat()) {
         // No AM/PM in 24-hour format
         x1 = y1 = x2 = y2 = 0;
@@ -383,24 +383,24 @@ void MatrixDisplayManager::getAMPMDisplayBounds(int &x1, int &y1, int &x2, int &
     y2 = MATRIX_HEIGHT - 1;
 }
 
-bool MatrixDisplayManager::isInTextArea(int x, int y, bool isShowingTime) {
-    return isInTextArea(x, y, isShowingTime, settings->getTextSize());
+bool MatrixDisplayManager::isInTextArea(int x, int y, bool hasText) {
+    return isInTextArea(x, y, hasText, settings->getTextSize());
 }
 
-bool MatrixDisplayManager::isInTextArea(int x, int y, bool isShowingTime, int textSize) {
-    if (!isShowingTime) return false;
+bool MatrixDisplayManager::isInTextArea(int x, int y, bool hasText, int textSize) {
+    if (!hasText) return false;
     
-    // Check main clock area
+    // Check main text area
     int x1, y1, x2, y2;
-    getTimeDisplayBounds(x1, y1, x2, y2, textSize);
+    getMainTextBounds(x1, y1, x2, y2, textSize);
     
     if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
         return true;
     }
     
-    // Check AM/PM area if in 12-hour format
+    // Check auxiliary text area (AM/PM for clock) if in 12-hour format
     if (!settings->getUse24HourFormat()) {
-        getAMPMDisplayBounds(x1, y1, x2, y2);
+        getAuxiliaryTextBounds(x1, y1, x2, y2);
         if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
             return true;
         }
@@ -456,20 +456,20 @@ void MatrixDisplayManager::drawTextBackground() {
 }
 
 void MatrixDisplayManager::drawTextBackground(int textSize) {
-    // Draw background for main clock
+    // Draw background for main text
     int x1, y1, x2, y2;
-    getTimeDisplayBounds(x1, y1, x2, y2, textSize);
+    getMainTextBounds(x1, y1, x2, y2, textSize);
     fillRect(x1, y1, x2 - x1 + 1, y2 - y1 + 1, 0x0000);
     
-    // Draw background for AM/PM if in 12-hour format
+    // Draw background for auxiliary text (AM/PM for clock) if in 12-hour format
     if (!settings->getUse24HourFormat()) {
-        getAMPMDisplayBounds(x1, y1, x2, y2);
+        getAuxiliaryTextBounds(x1, y1, x2, y2);
         fillRect(x1, y1, x2 - x1 + 1, y2 - y1 + 1, 0x0000);
     }
 }
 
 /**
- * Draw tight clock display that removes extra spacing
+ * Draw tight clock display that removes extra spacing for HH:MM:SS format
  */
 void MatrixDisplayManager::drawTightClock(const char* timeStr, int textSize, uint16_t color, int y) {
     if (y == -1) {

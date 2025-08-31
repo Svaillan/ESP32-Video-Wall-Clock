@@ -460,8 +460,33 @@ void MenuSystem::handleTimeSettingMode() {
     
     // Handle field progression
     if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating() && millis() - lastEnterPress > 200) {
+        buttons->clearEnterJustPressed();  // Consume the button press
+        lastEnterPress = millis();
+        Serial.print("ENTER pressed in time setting! Current step: ");
+        Serial.println(setStep);
+        
+        switch (setStep) {
+            case SET_HOUR:
+                setStep = SET_MINUTE;
+                Serial.println("Advancing to SET_MINUTE");
+                break;
+            case SET_MINUTE:
+                setStep = SET_SECOND;
+                Serial.println("Advancing to SET_SECOND");
+                break;
+            case SET_SECOND:
+                // Apply the set time to RTC
+                Serial.println("Setting RTC time and exiting");
+                rtc->adjust(DateTime(2024, 1, 1, setHour, setMin, setSec));
+                setStep = NONE;
+                inSetMode = false;
+                break;
+            default:
+                break;
+        }
+    }
     
-    // Display time with appropriate blinking field
+    // Display time with appropriate blinking field (this should run every frame)
     char displayStr[12];
     switch (setStep) {
         case SET_HOUR:
@@ -491,8 +516,6 @@ void MenuSystem::handleTimeSettingMode() {
     }
     
     display->drawTightClock(displayStr, settings->getTextSize(), display->getTextColors()[settings->getBrightnessIndex()]);
-}
-
 }
 
 AppState MenuSystem::getTimeSettingNextState() {
