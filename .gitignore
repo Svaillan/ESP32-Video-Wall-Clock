@@ -66,7 +66,7 @@ Thumbs.db
 .pre-commit-cache/
 
 # Python virtual environments
-*.venv
+.venv/
 __pycache__/
 *.py[cod]
 *$py.class

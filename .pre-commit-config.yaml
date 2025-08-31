@@ -45,7 +45,7 @@ repos:
   - repo: local
     hooks:
       - id: platformio-check
-        name: PlatformIO Check
+        name: PlatformIO Static Analysis
         entry: pio check
         language: system
         files: \.(c|cc|cxx|cpp|h|hpp|hxx|ino)$
@@ -53,7 +53,7 @@ repos:
         always_run: false
 
       - id: platformio-test
-        name: PlatformIO Test
+        name: PlatformIO Unit Tests
         entry: pio test
         language: system
         files: \.(c|cc|cxx|cpp|h|hpp|hxx|ino)$
@@ -62,7 +62,7 @@ repos:
         stages: [manual]  # Only run when explicitly called
 
       - id: platformio-build
-        name: PlatformIO Build Check
+        name: PlatformIO Build Verification
         entry: pio run --target checkprogsize
         language: system
         files: \.(c|cc|cxx|cpp|h|hpp|hxx|ino|ini)$
