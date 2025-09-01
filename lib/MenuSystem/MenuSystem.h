@@ -68,6 +68,7 @@ class MenuSystem {
     bool blockMenuReentry;
     uint32_t enterPressTime;
     bool wasPressed;
+    AppState previousState;  // Store the state we came from
 
     // WiFi serial entry state
     char wifiSSIDBuffer[32];

@@ -32,6 +32,13 @@ void WiFiManager::reconnectWithNewCredentials(const char* ssid, const char* pass
     }
 }
 
+void WiFiManager::disconnect() {
+    if (WiFi.status() == WL_CONNECTED) {
+        WiFi.disconnect();
+        wifiConnected = false;
+    }
+}
+
 void WiFiManager::connectToWiFi(const char* ssid, const char* password) {
     WiFi.mode(WIFI_STA);
 

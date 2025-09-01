@@ -11,6 +11,7 @@ class WiFiManager {
     explicit WiFiManager(class SettingsManager* settings);
     void begin(const char* ssid, const char* password);
     void reconnectWithNewCredentials(const char* ssid, const char* password);
+    void disconnect();
     void handleOTA();
     bool isConnected();
     bool isOTAInProgress() {

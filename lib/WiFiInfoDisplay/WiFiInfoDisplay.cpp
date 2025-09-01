@@ -35,9 +35,14 @@ void WiFiInfoDisplay::updateDisplay() {
 
     if (wifi->isConnected()) {
         drawConnectedStatus();
+    } else if (strlen(settings->getWiFiSSID()) == 0) {
+        // No WiFi credentials configured
+        drawNotConfiguredStatus();
     } else if (settings->isWiFiEnabled()) {
+        // Credentials exist and WiFi enabled but not connected
         drawConnectingAnimation();
     } else {
+        // Credentials exist but WiFi disabled
         drawDisconnectedStatus();
     }
 }
@@ -71,19 +76,17 @@ void WiFiInfoDisplay::drawConnectedStatus() {
 void WiFiInfoDisplay::drawDisconnectedStatus() {
     display->fillScreen(0);
 
-    // Draw red X animation
-    uint16_t color = display->applyBrightness(0xF800);  // Red
+    // No symbol - just text
+    display->drawCenteredText("Disconnected", 1, display->applyBrightness(0xF800), 2);
+    display->drawCenteredText("Enable in Menu", 1, display->applyBrightness(0x8410), 20);
+}
 
-    // Draw X pattern
-    for (int i = 0; i < 16; i++) {
-        display->drawPixel(56 + i, 8 + i, color);
-        display->drawPixel(56 + i, 23 - i, color);
-        display->drawPixel(72 - i, 8 + i, color);
-        display->drawPixel(72 - i, 23 - i, color);
-    }
+void WiFiInfoDisplay::drawNotConfiguredStatus() {
+    display->fillScreen(0);
 
-    display->drawCenteredText("WiFi Disabled", 1, display->applyBrightness(0xF800), 2);
-    display->drawCenteredText("Enable in Menu", 1, display->applyBrightness(0x8410), 26);
+    // No symbol - just text
+    display->drawCenteredText("Not Configured", 1, display->applyBrightness(0xF800), 2);
+    display->drawCenteredText("Set Up in Menu", 1, display->applyBrightness(0x8410), 20);
 }
 
 void WiFiInfoDisplay::drawConnectingAnimation() {
@@ -102,9 +105,7 @@ void WiFiInfoDisplay::drawConnectingAnimation() {
     }
     display->drawCenteredText(dots.c_str(), 1, color, 10);
 
-    // Draw spinning WiFi waves
-    drawWiFiWaves(64, 20, 3, animationFrame * 2);
-
+    // No WiFi wave symbols - just text
     String ssid = "SSID: " + String(settings->getWiFiSSID());
     display->drawCenteredText(ssid.c_str(), 1, display->applyBrightness(0x8410), 26);
 }
@@ -133,31 +134,6 @@ void WiFiInfoDisplay::drawSignalStrength(int rssi) {
     }
 
     // dBm text removed - just show the signal bars
-}
-
-void WiFiInfoDisplay::drawWiFiWaves(int centerX, int centerY, int strength, uint32_t frame) {
-    uint16_t color = getSignalColor(strength);
-
-    // Draw concentric arcs to represent WiFi waves
-    for (int wave = 0; wave < strength; wave++) {
-        int radius = 3 + wave * 3;
-
-        // Draw arc points
-        for (int angle = 45; angle <= 135; angle += 5) {
-            float rad = angle * PI / 180.0;
-            int x = centerX + radius * cos(rad);
-            int y = centerY - radius * sin(rad);
-
-            if (x >= 0 && x < MATRIX_WIDTH && y >= 0 && y < MATRIX_HEIGHT) {
-                display->drawPixel(x, y, color);
-            }
-        }
-    }
-
-    // Draw center dot
-    display->drawPixel(centerX, centerY, display->applyBrightness(0xFFFF));
-    display->drawPixel(centerX - 1, centerY, display->applyBrightness(0xFFFF));
-    display->drawPixel(centerX + 1, centerY, display->applyBrightness(0xFFFF));
 }
 
 void WiFiInfoDisplay::scrollText(const char* text, int y, uint16_t color) {

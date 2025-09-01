@@ -28,9 +28,9 @@ class WiFiInfoDisplay {
     // Display methods
     void drawConnectedStatus();
     void drawDisconnectedStatus();
+    void drawNotConfiguredStatus();
     void drawConnectingAnimation();
     void drawSignalStrength(int rssi);
-    void drawWiFiWaves(int centerX, int centerY, int strength, uint32_t frame);
     void scrollText(const char* text, int y, uint16_t color);
 
     // Utility methods

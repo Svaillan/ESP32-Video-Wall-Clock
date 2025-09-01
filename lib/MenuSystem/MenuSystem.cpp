@@ -42,6 +42,7 @@ MenuSystem::MenuSystem(MatrixDisplayManager* displayManager, SettingsManager* se
     blockMenuReentry = false;
     enterPressTime = 0;
     wasPressed = false;
+    previousState = SHOW_TIME;  // Default to time screen
 
     memset(wifiSSIDBuffer, 0, sizeof(wifiSSIDBuffer));
     memset(wifiPasswordBuffer, 0, sizeof(wifiPasswordBuffer));
@@ -200,11 +201,11 @@ AppState MenuSystem::getNextState() {
             case 7:
                 return OTA_MENU;
             case 8:
-                // Exiting to time display - reset menu entry state
+                // Exiting to previous screen - reset menu entry state
                 blockMenuReentry = true;
                 wasPressed = false;
                 enterPressTime = 0;
-                return SHOW_TIME;
+                return previousState;
         }
     }
     return MENU;  // Stay in menu
@@ -543,11 +544,11 @@ void MenuSystem::handleTimeSettingMode() {
 
 AppState MenuSystem::getTimeSettingNextState() {
     if (setStep == NONE && !inSetMode) {
-        // Exiting to time display - reset menu entry state
+        // Exiting to previous screen - reset menu entry state
         blockMenuReentry = true;
         wasPressed = false;
         enterPressTime = 0;
-        return SHOW_TIME;
+        return previousState;
     }
     return TIME_SET;  // Stay in time setting mode
 }
@@ -555,8 +556,10 @@ AppState MenuSystem::getTimeSettingNextState() {
 void MenuSystem::handleInput(AppState& appState) {
     switch (appState) {
         case SHOW_TIME:
+        case SHOW_WIFI_INFO:
             handleMenuEntry();
             if (shouldEnterMenu()) {
+                previousState = appState;  // Remember which screen we came from
                 appState = MENU;
                 menuIndex = 0;
                 // Reset menu entry state to prevent immediate re-entry
@@ -627,12 +630,22 @@ void MenuSystem::handleInput(AppState& appState) {
 
             // Handle UP button to toggle WiFi or enter serial mode
             if (buttons->isUpJustPressed()) {
-                if (settings->isWiFiEnabled() && strlen(settings->getWiFiSSID()) > 0) {
-                    // Toggle WiFi on/off
-                    settings->setWiFiEnabled(!settings->isWiFiEnabled());
+                if (strlen(settings->getWiFiSSID()) > 0) {
+                    // Toggle WiFi on/off (keep stored credentials)
+                    bool newState = !settings->isWiFiEnabled();
+                    settings->setWiFiEnabled(newState);
                     settings->saveSettings();
+
+                    if (newState) {
+                        // If we just enabled WiFi, try to connect immediately
+                        wifi->reconnectWithNewCredentials(settings->getWiFiSSID(),
+                                                          settings->getWiFiPassword());
+                    } else {
+                        // If we just disabled WiFi, disconnect from network
+                        wifi->disconnect();
+                    }
                 } else {
-                    // Enter serial setup mode
+                    // No stored credentials, enter serial setup mode
                     startSerialWiFiSetup();
                 }
             }
@@ -652,6 +665,11 @@ void MenuSystem::handleInput(AppState& appState) {
 }
 
 void MenuSystem::updateDisplay(AppState appState) {
+    // Don't update display if OTA is in progress (to allow screen blanking)
+    if (wifi && wifi->isOTAInProgress()) {
+        return;
+    }
+
     switch (appState) {
         case MENU:
             buttons->setAllowButtonRepeat(false);  // Disable repeating for menu navigation
@@ -735,14 +753,17 @@ void MenuSystem::displayWiFiMenu() {
     uint16_t statusColor;
 
     if (wifi->isConnected()) {
-        snprintf(statusLine, sizeof(statusLine), "CONNECTED: %s", settings->getWiFiSSID());
+        // Just show the SSID in green when connected
+        snprintf(statusLine, sizeof(statusLine), "%s", settings->getWiFiSSID());
         statusColor = display->applyBrightness(0x07E0);  // Green
-    } else if (settings->isWiFiEnabled() && strlen(settings->getWiFiSSID()) > 0) {
-        snprintf(statusLine, sizeof(statusLine), "DISCONNECTED: %s", settings->getWiFiSSID());
+    } else if (strlen(settings->getWiFiSSID()) > 0) {
+        // Just show "DISCONNECTED" when have credentials but not connected
+        strcpy(statusLine, "DISCONNECTED");
         statusColor = display->applyBrightness(0xF800);  // Red
     } else {
+        // No stored credentials
         strcpy(statusLine, "NO NETWORK CONFIGURED");
-        statusColor = display->applyBrightness(0xFFE0);  // Yellow
+        statusColor = display->applyBrightness(0xF800);  // Red
     }
 
     display->drawCenteredTextWithBox(statusLine, 1, statusColor, 0x0000, 2);
