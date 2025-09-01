@@ -1,9 +1,11 @@
 #include "MenuSystem.h"
 
+#include <time.h>
+
 // Static menu data
-const char* MenuSystem::menuItems[] = {"Text Size",   "Brightness", "Time Format",
-                                       "Clock Color", "Effects",    "Set Clock",
-                                       "WiFi Setup",  "OTA Setup",  "Exit"};
+const char* MenuSystem::menuItems[] = {"Text Size",  "Brightness", "Time Format", "Clock Color",
+                                       "Effects",    "Timezone",   "Set Clock",   "Sync NTP",
+                                       "WiFi Setup", "OTA Setup",  "Exit"};
 const int MenuSystem::MENU_ITEMS = sizeof(menuItems) / sizeof(menuItems[0]);
 const char* MenuSystem::effectNames[] = {"Confetti", "Acid",      "Rain", "Torrent", "Stars",
                                          "Sparkles", "Fireworks", "Tron", "Off"};
@@ -12,21 +14,49 @@ const char* MenuSystem::clockColorNames[] = {
     "White",  "Red",  "Green", "Blue", "Yellow", "Cyan", "Magenta", "Orange",
     "Purple", "Pink", "Lime",  "Teal", "Indigo", "Gold", "Silver",  "Rainbow"};
 const int MenuSystem::CLOCK_COLOR_OPTIONS = sizeof(clockColorNames) / sizeof(clockColorNames[0]);
+const char* MenuSystem::timezoneNames[] = {
+    "Arizona", "Hawaii",       "Alaska",  "Pacific", "Mountain", "Central", "Eastern", "Atlantic",
+    "Brazil",  "Newfoundland", "UTC",     "London",  "Paris",    "Cairo",   "Moscow",  "Dubai",
+    "Tehran",  "India",        "Bangkok", "China",   "Tokyo",    "Seoul",   "Sydney",  "Auckland"};
+const int MenuSystem::TIMEZONE_OPTIONS = sizeof(timezoneNames) / sizeof(timezoneNames[0]);
+
+// UTC offsets in hours (can be negative)
+const int MenuSystem::timezoneOffsets[] = {-7, -10, -9, -8, -7, -6, -5, -4, -3, -3, 0,  0,
+                                           1,  2,   3,  4,  4,  5,  7,  8,  9,  9,  10, 12};
+
+// DST support flags (true if timezone observes DST)
+const bool MenuSystem::timezoneDST[] = {false, false, true,  true,  true,  true,  true,  true,
+                                        false, true,  false, true,  true,  false, false, false,
+                                        true,  false, false, false, false, false, true,  true};
+
+// DST offset in hours (added when DST is active)
+const int MenuSystem::timezoneDSTOffset[] = {0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1,
+                                             1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1};
+
+// Timezone codes for display
+const char* MenuSystem::timezoneCodes[] = {
+    "MST",      "HST",      "AKST/AKDT", "PST/PDT", "MST/MDT",   "CST/CDT",
+    "EST/EDT",  "AST/ADT",  "BRT",       "NST/NDT", "UTC",       "GMT/BST",
+    "CET/CEST", "EET/EEST", "MSK",       "GST",     "IRST/IRDT", "IST",
+    "ICT",      "CST",      "JST",       "KST",     "AEST/AEDT", "NZST/NZDT"};
 
 MenuSystem::MenuSystem(MatrixDisplayManager* displayManager, SettingsManager* settingsManager,
                        ButtonManager* buttonManager, EffectsEngine* effectsEngine,
-                       RTC_DS3231* rtcInstance, WiFiManager* wifiManager) {
+                       RTC_DS3231* rtcInstance, WiFiManager* wifiManager,
+                       TimeManager* timeManager) {
     display = displayManager;
     settings = settingsManager;
     buttons = buttonManager;
     effects = effectsEngine;
     rtc = rtcInstance;
     wifi = wifiManager;
+    this->timeManager = timeManager;
 
     // Initialize menu state
     menuIndex = 0;
     effectMenuIndex = 0;
     clockColorMenuIndex = 0;
+    timezoneMenuIndex = 0;
 
     // Initialize time setting state
     setHour = 0;
@@ -49,12 +79,17 @@ MenuSystem::MenuSystem(MatrixDisplayManager* displayManager, SettingsManager* se
     serialInputMode = false;
     waitingForSSID = false;
     waitingForPassword = false;
+
+    // Initialize NTP sync state
+    ntpSyncState = NTP_SYNC_IDLE;
+    ntpSyncMessage = "";
+    ntpSyncStartTime = 0;
+    ntpSyncAttemptTime = 0;
 }
 
 void MenuSystem::begin() {
     // Nothing specific to initialize
 }
-
 void MenuSystem::reset() {
     // Reset all menu entry state
     blockMenuReentry = true;
@@ -102,6 +137,34 @@ bool MenuSystem::shouldEnterMenu() {
 }
 
 void MenuSystem::displayMainMenu() {
+    // Check if we should display an NTP sync message instead of the menu
+    if (ntpSyncState != NTP_SYNC_IDLE) {
+        unsigned long elapsed = millis() - ntpSyncStartTime;
+
+        if (elapsed < NTP_SYNC_DISPLAY_DURATION) {
+            // Still showing the NTP sync message
+            uint16_t color;
+            switch (ntpSyncState) {
+                case NTP_SYNC_REQUESTED:
+                case NTP_SYNC_IN_PROGRESS:
+                    color = display->applyBrightness(0xFFE0);  // Yellow
+                    break;
+                case NTP_SYNC_SUCCESS:
+                    color = display->applyBrightness(0x07E0);  // Green
+                    break;
+                case NTP_SYNC_ERROR:
+                default:
+                    color = display->applyBrightness(0xF800);  // Red
+                    break;
+            }
+            display->drawCenteredTextWithBox(ntpSyncMessage.c_str(), 1, color);
+            return;
+        } else {
+            // Message display time is over, return to normal menu
+            ntpSyncState = NTP_SYNC_IDLE;
+        }
+    }
+
     char menuLine[32];
     strcpy(menuLine, menuItems[menuIndex]);
 
@@ -118,11 +181,28 @@ void MenuSystem::displayMainMenu() {
                     settings->getUse24HourFormat() ? "24H" : "12H");
             break;
         case 3:  // Clock Color
-            sprintf(menuLine + strlen(menuLine), " (%s)",
-                    clockColorNames[settings->getClockColorMode()]);
+            // No value to display
             break;
         case 4:  // Effects
             sprintf(menuLine + strlen(menuLine), " (%s)", effectNames[settings->getEffectMode()]);
+            break;
+        case 5:  // Timezone
+            // No value to display
+            break;
+        case 6:  // Set Clock
+            // No value to display
+            break;
+        case 7:  // Sync NTP
+            // No value to display
+            break;
+        case 8:  // WiFi Setup
+            // No value to display
+            break;
+        case 9:  // OTA Setup
+            // No value to display
+            break;
+        case 10:  // Exit
+            // No value to display
             break;
     }
 
@@ -156,7 +236,11 @@ void MenuSystem::handleMainMenuInput() {
                 effectMenuIndex = settings->getEffectMode();
                 // Will transition to EDIT_EFFECTS in main code
                 break;
-            case 5:  // Set Clock
+            case 5:                                                // Timezone
+                timezoneMenuIndex = settings->getTimezoneIndex();  // Start with saved timezone
+                // Will transition to EDIT_TIMEZONE in main code
+                break;
+            case 6:  // Set Clock
             {
                 DateTime now = rtc->now();
                 setHour = now.hour();
@@ -168,13 +252,30 @@ void MenuSystem::handleMainMenuInput() {
                 lastEnterPress = 0;
                 entryLockProcessed = false;
             } break;
-            case 6:  // WiFi Setup
+            case 7:  // Sync NTP
+            {
+                // Check WiFi connectivity first
+                if (!wifi || !wifi->isConnected()) {
+                    // Set a state that will show the error message
+                    ntpSyncState = NTP_SYNC_ERROR;
+                    ntpSyncMessage = "WiFi Not Connected";
+                    ntpSyncStartTime = millis();
+                    break;
+                }
+
+                // Just request NTP sync - don't do it here!
+                ntpSyncState = NTP_SYNC_REQUESTED;
+                ntpSyncMessage = "Starting NTP Sync...";
+                ntpSyncStartTime = millis();
+                break;
+            }
+            case 8:  // WiFi Setup
                 // Will transition to WIFI_MENU in main code
                 break;
-            case 7:  // OTA Setup
+            case 9:  // OTA Setup
                 // Will transition to OTA_MENU in main code
                 break;
-            case 8:  // Exit
+            case 10:  // Exit
                 // Will transition to SHOW_TIME in main code
                 break;
         }
@@ -195,12 +296,16 @@ AppState MenuSystem::getNextState() {
             case 4:
                 return EDIT_EFFECTS;
             case 5:
-                return TIME_SET;
+                return EDIT_TIMEZONE;
             case 6:
-                return WIFI_MENU;
+                return TIME_SET;
             case 7:
-                return OTA_MENU;
+                return SYNC_NTP;
             case 8:
+                return WIFI_MENU;
+            case 9:
+                return OTA_MENU;
+            case 10:
                 // Exiting to previous screen - reset menu entry state
                 blockMenuReentry = true;
                 wasPressed = false;
@@ -422,6 +527,66 @@ AppState MenuSystem::getClockColorMenuNextState() {
     return EDIT_CLOCK_COLOR;  // Stay in clock color menu
 }
 
+void MenuSystem::displayTimezoneMenu() {
+    // Display the city/region name at the top
+    display->drawCenteredText(timezoneNames[timezoneMenuIndex], 1, display->applyBrightness(0xFFE0),
+                              6);  // Yellow
+
+    // Display the timezone code in the middle
+    display->drawCenteredText(timezoneCodes[timezoneMenuIndex], 1, display->applyBrightness(0x07FF),
+                              14);  // Cyan
+
+    // Display the UTC offset at the bottom
+    char offsetStr[32];
+    int offset = timezoneOffsets[timezoneMenuIndex];
+    bool hasDST = timezoneDST[timezoneMenuIndex];
+    int dstOffset = timezoneDSTOffset[timezoneMenuIndex];
+
+    if (hasDST && dstOffset > 0) {
+        sprintf(offsetStr, "UTC%+d/%+d (DST)", offset, offset + dstOffset);
+    } else {
+        sprintf(offsetStr, "UTC%+d", offset);
+    }
+
+    display->drawCenteredText(offsetStr, 1, display->applyBrightness(0xF81F), 22);  // Purple
+}
+
+void MenuSystem::handleTimezoneInput() {
+    bool settingsChanged = false;
+
+    if (buttons->isDownJustPressed()) {
+        timezoneMenuIndex = (timezoneMenuIndex + 1) % TIMEZONE_OPTIONS;
+        settingsChanged = true;
+    }
+    if (buttons->isUpJustPressed()) {
+        timezoneMenuIndex = (timezoneMenuIndex - 1 + TIMEZONE_OPTIONS) % TIMEZONE_OPTIONS;
+        settingsChanged = true;
+    }
+    if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating()) {
+        // Apply the timezone change to TimeManager using offset approach
+        timeManager->setTimezoneOffset(timezoneOffsets[timezoneMenuIndex],
+                                       timezoneDST[timezoneMenuIndex],
+                                       timezoneDSTOffset[timezoneMenuIndex]);
+
+        // Save the timezone index to settings
+        settings->setTimezoneIndex(timezoneMenuIndex);
+        settings->saveSettings();
+        // Will transition back to MENU in main code
+    }
+
+    // Update the preview immediately
+    if (settingsChanged) {
+        // No need to save here since we only save on ENTER
+    }
+}
+
+AppState MenuSystem::getTimezoneMenuNextState() {
+    if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating()) {
+        return MENU;
+    }
+    return EDIT_TIMEZONE;  // Stay in timezone menu
+}
+
 void MenuSystem::handleTimeSettingMode() {
     static bool blinkState = true;
     static uint32_t lastBlink = 0;
@@ -598,9 +763,19 @@ void MenuSystem::handleInput(AppState& appState) {
             appState = getEffectsMenuNextState();
             break;
 
+        case EDIT_TIMEZONE:
+            handleTimezoneInput();
+            appState = getTimezoneMenuNextState();
+            break;
+
         case TIME_SET:
             handleTimeSettingMode();
             appState = getTimeSettingNextState();
+            break;
+
+        case SYNC_NTP:
+            // NTP sync state - transition back to menu and let menu handle display
+            appState = MENU;
             break;
 
         case WIFI_MENU:
@@ -701,9 +876,20 @@ void MenuSystem::updateDisplay(AppState appState) {
             displayEffectsMenu();
             break;
 
+        case EDIT_TIMEZONE:
+            buttons->setAllowButtonRepeat(false);  // Disable repeating for timezone menu
+            displayTimezoneMenu();
+            break;
+
         case TIME_SET:
             buttons->setAllowButtonRepeat(true);  // Enable repeating for time setting
             handleTimeSettingMode();
+            break;
+
+        case SYNC_NTP:
+            // NTP sync state - just display the menu (which handles NTP sync status)
+            buttons->setAllowButtonRepeat(false);
+            displayMainMenu();
             break;
 
         case WIFI_MENU:
@@ -909,4 +1095,17 @@ void MenuSystem::handleSerialWiFiInput() {
             }
         }
     }
+}
+
+// ===================== NTP SYNC RESULT SETTER =====================
+
+void MenuSystem::setNTPSyncResult(bool success) {
+    if (success) {
+        ntpSyncState = NTP_SYNC_SUCCESS;
+        ntpSyncMessage = "NTP Sync Success";
+    } else {
+        ntpSyncState = NTP_SYNC_ERROR;
+        ntpSyncMessage = "NTP Sync Failed";
+    }
+    ntpSyncStartTime = millis();
 }
