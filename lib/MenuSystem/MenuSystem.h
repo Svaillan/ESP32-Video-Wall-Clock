@@ -8,6 +8,7 @@
 #include "MatrixDisplayManager.h"
 #include "RTClib.h"
 #include "SettingsManager.h"
+#include "WiFiManager.h"
 
 // Menu timing constants
 #define MENU_DELAY 20  // Reduced from 30ms for snappier response
@@ -15,13 +16,16 @@
 // Application states
 enum AppState {
     SHOW_TIME,
+    SHOW_WIFI_INFO,
     MENU,
     EDIT_TEXT_SIZE,
     EDIT_BRIGHTNESS,
     EDIT_TIME_FORMAT,
     EDIT_CLOCK_COLOR,
     EDIT_EFFECTS,
-    TIME_SET
+    TIME_SET,
+    WIFI_MENU,
+    OTA_MENU
 };
 
 // Time setting steps
@@ -35,6 +39,7 @@ class MenuSystem {
     ButtonManager* buttons;
     EffectsEngine* effects;
     RTC_DS3231* rtc;
+    WiFiManager* wifi;
 
     // Menu configuration
     static const char* menuItems[];
@@ -64,6 +69,13 @@ class MenuSystem {
     uint32_t enterPressTime;
     bool wasPressed;
 
+    // WiFi serial entry state
+    char wifiSSIDBuffer[32];
+    char wifiPasswordBuffer[64];
+    bool serialInputMode;     // True when accepting serial input
+    bool waitingForSSID;      // True when waiting for SSID via serial
+    bool waitingForPassword;  // True when waiting for password via serial
+
     // Menu display functions
     void displayMainMenu();
     void displayEffectsMenu();
@@ -71,6 +83,12 @@ class MenuSystem {
     void displayBrightnessMenu();
     void displayTimeFormatMenu();
     void displayClockColorMenu();
+
+    // Specialized menus
+    void displayWiFiMenu();
+    void displayOTAMenu();
+    void handleSerialWiFiInput();
+    void startSerialWiFiSetup();
 
     // Menu input handlers
     void handleMainMenuInput();
@@ -88,7 +106,8 @@ class MenuSystem {
 
    public:
     MenuSystem(MatrixDisplayManager* displayManager, SettingsManager* settingsManager,
-               ButtonManager* buttonManager, EffectsEngine* effectsEngine, RTC_DS3231* rtcInstance);
+               ButtonManager* buttonManager, EffectsEngine* effectsEngine, RTC_DS3231* rtcInstance,
+               WiFiManager* wifiManager);
 
     void begin();
     void reset();

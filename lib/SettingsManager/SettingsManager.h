@@ -5,14 +5,17 @@
 #include <EEPROM.h>
 
 // EEPROM Settings
-#define EEPROM_SIZE 64             // Size in bytes
-#define EEPROM_MAGIC 0x42          // Magic number to verify valid data
-#define EEPROM_ADDR_MAGIC 0        // Address for magic number
-#define EEPROM_ADDR_TEXT_SIZE 1    // Address for text size
-#define EEPROM_ADDR_BRIGHTNESS 2   // Address for brightness index
-#define EEPROM_ADDR_EFFECT_MODE 3  // Address for effect mode
-#define EEPROM_ADDR_TIME_FORMAT 4  // Address for time format (12/24 hour)
-#define EEPROM_ADDR_CLOCK_COLOR 5  // Address for clock color mode
+#define EEPROM_SIZE 128               // Increased size for WiFi settings
+#define EEPROM_MAGIC 0x42             // Magic number to verify valid data
+#define EEPROM_ADDR_MAGIC 0           // Address for magic number
+#define EEPROM_ADDR_TEXT_SIZE 1       // Address for text size
+#define EEPROM_ADDR_BRIGHTNESS 2      // Address for brightness index
+#define EEPROM_ADDR_EFFECT_MODE 3     // Address for effect mode
+#define EEPROM_ADDR_TIME_FORMAT 4     // Address for time format (12/24 hour)
+#define EEPROM_ADDR_CLOCK_COLOR 5     // Address for clock color mode
+#define EEPROM_ADDR_WIFI_ENABLED 6    // Address for WiFi enabled flag
+#define EEPROM_ADDR_WIFI_SSID 7       // Address for WiFi SSID (32 bytes)
+#define EEPROM_ADDR_WIFI_PASSWORD 39  // Address for WiFi password (64 bytes)
 
 // Constants
 #define TEXT_SIZE_MIN 1
@@ -75,12 +78,32 @@ class SettingsManager {
         return clockColorMode;
     }
 
+    // WiFi settings getters
+    bool isWiFiEnabled() const {
+        return wifiEnabled;
+    }
+    const char* getWiFiSSID() const {
+        return wifiSSID;
+    }
+    const char* getWiFiPassword() const {
+        return wifiPassword;
+    }
+
+    // OTA settings getters
+    const char* getOTAPassword() const {
+        return otaPassword;
+    }
+
     // Settings setters
     void setTextSize(int size);
     void setBrightnessIndex(int index);
     void setEffectMode(EffectMode mode);
     void setUse24HourFormat(bool format);
     void setClockColorMode(ClockColorMode mode);
+
+    // WiFi settings setters
+    void setWiFiEnabled(bool enabled);
+    void setWiFiCredentials(const char* ssid, const char* password);
 
     // Save/Load operations
     void saveSettings();
@@ -93,6 +116,14 @@ class SettingsManager {
     EffectMode effectMode;
     bool use24HourFormat;
     ClockColorMode clockColorMode;
+
+    // WiFi settings
+    bool wifiEnabled;
+    char wifiSSID[32];
+    char wifiPassword[64];
+
+    // OTA settings
+    char otaPassword[32];  // Increased buffer size for static OTA password
 
     // Validation functions
     bool isValidTextSize(int size) const;

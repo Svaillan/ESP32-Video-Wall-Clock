@@ -45,6 +45,17 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Credentials and sensitive configuration
+credentials/ota.ini
+credentials/platformio_credentials.ini
+credentials/ota_config.h
+credentials/*.ini
+!credentials/*.ini.example
+!credentials/*.h.example
+
+# Root level credentials files
+platformio_credentials.ini
+
 # Compiled Object files
 *.o
 *.obj

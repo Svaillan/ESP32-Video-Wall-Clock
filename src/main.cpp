@@ -12,6 +12,8 @@
 #include "MatrixDisplayManager.h"
 #include "MenuSystem.h"
 #include "SettingsManager.h"
+#include "WiFiInfoDisplay.h"
+#include "WiFiManager.h"
 
 // ===============================================
 // CONFIGURATION & CONSTANTS
@@ -54,11 +56,14 @@ RTC_DS3231 rtc;
 // System instances
 SettingsManager settings;
 ButtonManager buttons;
+WiFiManager wifiManager(&settings);
 MatrixDisplayManager display(&matrix, &settings);
 EffectsEngine effects(&display, &settings);
 ClockDisplay clockDisplay(&display, &settings, &rtc);
-MenuSystem menu(&display, &settings, &buttons, &effects, &rtc);
-AppStateManager appManager(&buttons, &settings, &display, &effects, &menu, &clockDisplay);
+MenuSystem menu(&display, &settings, &buttons, &effects, &rtc, &wifiManager);
+WiFiInfoDisplay wifiInfoDisplay(&display, &wifiManager, &settings);
+AppStateManager appManager(&buttons, &settings, &display, &effects, &menu, &clockDisplay,
+                           &wifiInfoDisplay);
 
 // State Variables
 uint32_t systemStartTime = 0;
@@ -149,8 +154,29 @@ void initializeSystem() {
     // Initialize clock display
     clockDisplay.begin();
 
+    // Initialize WiFi info display
+    wifiInfoDisplay.begin();
+
     // Initialize app state manager
     appManager.begin();
+
+    // Initialize WiFi and OTA if enabled
+    if (settings.isWiFiEnabled()) {
+        Serial.println("WiFi enabled, connecting...");
+        wifiManager.begin(settings.getWiFiSSID(), settings.getWiFiPassword());
+
+        // Always setup OTA if WiFi is enabled (it will work once WiFi connects)
+        wifiManager.setupOTA("matrix-clock",
+                             &display);  // Uses randomly generated password with display blanking
+
+        if (wifiManager.isConnected()) {
+            Serial.println("WiFi connected - OTA ready for uploads!");
+        } else {
+            Serial.println("WiFi connecting... OTA will be available once connected");
+        }
+    } else {
+        Serial.println("WiFi disabled - use menu to configure");
+    }
 
     // Set startup time for grace period
     systemStartTime = millis();
@@ -185,6 +211,16 @@ void setup() {
 }
 
 void loop() {
+    // Handle OTA updates first (highest priority)
+    wifiManager.handleOTA();
+
+    // If OTA is in progress, show progress and skip normal operation
+    if (wifiManager.isOTAInProgress()) {
+        wifiManager.displayStatus(&display);
+        delay(100);  // Small delay to prevent flickering
+        return;
+    }
+
     buttons.updateAll();
     handleInput();
     updateDisplay();

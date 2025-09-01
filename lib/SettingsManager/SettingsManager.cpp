@@ -1,5 +1,15 @@
 #include "SettingsManager.h"
 
+// Try to include local OTA config, use default if not available
+#if __has_include("../../credentials/ota_config.h")
+#include "../../credentials/ota_config.h"
+#endif
+
+// Fallback password if no config file
+#ifndef OTA_STATIC_PASSWORD
+#define OTA_STATIC_PASSWORD "defaultOTA"
+#endif
+
 SettingsManager::SettingsManager() {
     // Initialize with default values
     textSize = 2;
@@ -7,11 +17,18 @@ SettingsManager::SettingsManager() {
     effectMode = EFFECT_CONFETTI;
     use24HourFormat = true;  // Default to 24-hour format
     clockColorMode = CLOCK_WHITE;
+
+    // WiFi defaults
+    wifiEnabled = false;
+    strcpy(wifiSSID, "");
+    strcpy(wifiPassword, "");
+
+    // OTA defaults - always use static password
+    strcpy(otaPassword, OTA_STATIC_PASSWORD);
 }
 
 void SettingsManager::begin() {
     EEPROM.begin(EEPROM_SIZE);
-    Serial.println("EEPROM initialized");
     loadSettings();
 }
 
@@ -39,6 +56,20 @@ void SettingsManager::setClockColorMode(ClockColorMode mode) {
     clockColorMode = mode;
 }
 
+void SettingsManager::setWiFiEnabled(bool enabled) {
+    wifiEnabled = enabled;
+}
+
+void SettingsManager::setWiFiCredentials(const char* ssid, const char* password) {
+    strncpy(wifiSSID, ssid, sizeof(wifiSSID) - 1);
+    wifiSSID[sizeof(wifiSSID) - 1] = '\0';
+
+    strncpy(wifiPassword, password, sizeof(wifiPassword) - 1);
+    wifiPassword[sizeof(wifiPassword) - 1] = '\0';
+
+    wifiEnabled = (strlen(ssid) > 0);
+}
+
 void SettingsManager::saveSettings() {
     EEPROM.write(EEPROM_ADDR_MAGIC, EEPROM_MAGIC);
     EEPROM.write(EEPROM_ADDR_TEXT_SIZE, textSize);
@@ -46,6 +77,20 @@ void SettingsManager::saveSettings() {
     EEPROM.write(EEPROM_ADDR_EFFECT_MODE, (uint8_t)effectMode);
     EEPROM.write(EEPROM_ADDR_TIME_FORMAT, use24HourFormat ? 1 : 0);
     EEPROM.write(EEPROM_ADDR_CLOCK_COLOR, (uint8_t)clockColorMode);
+
+    // Save WiFi settings
+    EEPROM.write(EEPROM_ADDR_WIFI_ENABLED, wifiEnabled ? 1 : 0);
+
+    // Save SSID
+    for (int i = 0; i < 32; i++) {
+        EEPROM.write(EEPROM_ADDR_WIFI_SSID + i, wifiSSID[i]);
+    }
+
+    // Save password
+    for (int i = 0; i < 64; i++) {
+        EEPROM.write(EEPROM_ADDR_WIFI_PASSWORD + i, wifiPassword[i]);
+    }
+
     EEPROM.commit();
 
     Serial.println("Settings saved to EEPROM");
@@ -89,21 +134,28 @@ void SettingsManager::loadSettings() {
             clockColorMode = (ClockColorMode)savedClockColor;
         }
 
-        use24HourFormat = (savedTimeFormat == 1);
+        // Load WiFi settings
+        wifiEnabled = EEPROM.read(EEPROM_ADDR_WIFI_ENABLED) == 1;
 
-        Serial.println("Settings loaded from EEPROM");
-        Serial.print("Text Size: ");
-        Serial.println(textSize);
-        Serial.print("Brightness: ");
-        Serial.println(brightnessIndex + 1);
-        Serial.print("Effect Mode: ");
-        Serial.println((int)effectMode);
-        Serial.print("Time Format: ");
-        Serial.println(use24HourFormat ? "24H" : "12H");
-        Serial.print("Clock Color: ");
-        Serial.println((int)clockColorMode);
+        // Load SSID
+        for (int i = 0; i < 32; i++) {
+            wifiSSID[i] = EEPROM.read(EEPROM_ADDR_WIFI_SSID + i);
+        }
+        wifiSSID[31] = '\0';  // Ensure null termination
+
+        // Load password
+        for (int i = 0; i < 64; i++) {
+            wifiPassword[i] = EEPROM.read(EEPROM_ADDR_WIFI_PASSWORD + i);
+        }
+        wifiPassword[63] = '\0';  // Ensure null termination
+
+        // Initialize OTA password - always use static password
+        strcpy(otaPassword, OTA_STATIC_PASSWORD);
+
+        use24HourFormat = (savedTimeFormat == 1);
     } else {
-        Serial.println("No valid EEPROM data found, using defaults");
+        // Use static OTA password for new device
+        strcpy(otaPassword, OTA_STATIC_PASSWORD);
         // Save default settings to EEPROM for next time
         saveSettings();
     }

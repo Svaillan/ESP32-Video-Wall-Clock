@@ -90,6 +90,17 @@ class ButtonManager {
         return allowButtonRepeat;
     }
 
+    // Get button press start times for long press detection
+    uint32_t getDownPressTime() const {
+        return btnDown.pressStartTime;
+    }
+    uint32_t getUpPressTime() const {
+        return btnUp.pressStartTime;
+    }
+    uint32_t getEnterPressTime() const {
+        return btnEnter.pressStartTime;
+    }
+
    private:
     // Button instances
     ButtonState btnUp;

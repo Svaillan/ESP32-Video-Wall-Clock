@@ -8,7 +8,6 @@
 
 A professional-grade, feature-rich digital clock display using an ESP32 microcontroller and a 128x32 RGB LED matrix panel. Built with modern software architecture, comprehensive testing, and cross-platform development support.
 
-![Matrix Clock Demo](docs/images/clock-demo.gif)
 *Real-time clock with customizable colors and animated background effects*
 
 ## ✨ Features
