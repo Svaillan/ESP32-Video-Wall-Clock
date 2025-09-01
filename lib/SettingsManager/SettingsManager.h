@@ -5,17 +5,18 @@
 #include <EEPROM.h>
 
 // EEPROM Settings
-#define EEPROM_SIZE 128               // Increased size for WiFi settings
-#define EEPROM_MAGIC 0x42             // Magic number to verify valid data
-#define EEPROM_ADDR_MAGIC 0           // Address for magic number
-#define EEPROM_ADDR_TEXT_SIZE 1       // Address for text size
-#define EEPROM_ADDR_BRIGHTNESS 2      // Address for brightness index
-#define EEPROM_ADDR_EFFECT_MODE 3     // Address for effect mode
-#define EEPROM_ADDR_TIME_FORMAT 4     // Address for time format (12/24 hour)
-#define EEPROM_ADDR_CLOCK_COLOR 5     // Address for clock color mode
-#define EEPROM_ADDR_WIFI_ENABLED 6    // Address for WiFi enabled flag
-#define EEPROM_ADDR_WIFI_SSID 7       // Address for WiFi SSID (32 bytes)
-#define EEPROM_ADDR_WIFI_PASSWORD 39  // Address for WiFi password (64 bytes)
+#define EEPROM_SIZE 128                 // Increased size for WiFi settings
+#define EEPROM_MAGIC 0x42               // Magic number to verify valid data
+#define EEPROM_ADDR_MAGIC 0             // Address for magic number
+#define EEPROM_ADDR_TEXT_SIZE 1         // Address for text size
+#define EEPROM_ADDR_BRIGHTNESS 2        // Address for brightness index
+#define EEPROM_ADDR_EFFECT_MODE 3       // Address for effect mode
+#define EEPROM_ADDR_TIME_FORMAT 4       // Address for time format (12/24 hour)
+#define EEPROM_ADDR_CLOCK_COLOR 5       // Address for clock color mode
+#define EEPROM_ADDR_WIFI_ENABLED 6      // Address for WiFi enabled flag
+#define EEPROM_ADDR_WIFI_SSID 7         // Address for WiFi SSID (32 bytes)
+#define EEPROM_ADDR_WIFI_PASSWORD 39    // Address for WiFi password (64 bytes)
+#define EEPROM_ADDR_TIMEZONE_INDEX 103  // Address for timezone index (1 byte)
 
 // Constants
 #define TEXT_SIZE_MIN 1
@@ -77,6 +78,9 @@ class SettingsManager {
     ClockColorMode getClockColorMode() const {
         return clockColorMode;
     }
+    int getTimezoneIndex() const {
+        return timezoneIndex;
+    }
 
     // WiFi settings getters
     bool isWiFiEnabled() const {
@@ -100,6 +104,7 @@ class SettingsManager {
     void setEffectMode(EffectMode mode);
     void setUse24HourFormat(bool format);
     void setClockColorMode(ClockColorMode mode);
+    void setTimezoneIndex(int index);
 
     // WiFi settings setters
     void setWiFiEnabled(bool enabled);
@@ -116,6 +121,7 @@ class SettingsManager {
     EffectMode effectMode;
     bool use24HourFormat;
     ClockColorMode clockColorMode;
+    int timezoneIndex;
 
     // WiFi settings
     bool wifiEnabled;

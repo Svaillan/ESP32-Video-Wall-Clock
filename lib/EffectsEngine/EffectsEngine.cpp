@@ -1,7 +1,16 @@
 #include "EffectsEngine.h"
 
 EffectsEngine::EffectsEngine(MatrixDisplayManager* display, SettingsManager* settings)
-    : display(display), settings(settings) {}
+    : display(display),
+      settings(settings),
+      confetti{},
+      matrixDrops{},
+      torrentDrops{},
+      stars{},
+      shootingStars{},
+      sparkles{},
+      fireworks{},
+      tronTrails{} {}
 
 void EffectsEngine::begin() {
     // Initialize all effects
@@ -324,12 +333,12 @@ void EffectsEngine::spawnShootingStar(int index) {
 void EffectsEngine::updateStars() {
     uint32_t currentTime = millis();
     static uint32_t lastDriftUpdate = 0;
-    static float globalDriftX = 0.005f;  // Slowed down to 10% of original speed
-    static float globalDriftY = 0.003f;  // Slowed down to 10% of original speed
 
     // Slow drift movement - update every 150ms
     if (currentTime - lastDriftUpdate > 150) {
-        float groupDriftX = globalDriftX;  // Completely fixed drift
+        static float globalDriftX = 0.005f;  // Slowed down to 10% of original speed
+        static float globalDriftY = 0.003f;  // Slowed down to 10% of original speed
+        float groupDriftX = globalDriftX;    // Completely fixed drift
         float groupDriftY = globalDriftY;
 
         // Apply the SAME movement to all stars as a unified group
@@ -696,8 +705,7 @@ void EffectsEngine::updateTron() {
                 }
 
                 // Add new head position to trail if on screen
-                if (tronTrails[i].x >= 0 && tronTrails[i].x < MATRIX_WIDTH &&
-                    tronTrails[i].y >= 0 && tronTrails[i].y < MATRIX_HEIGHT) {
+                if (tronTrails[i].x < MATRIX_WIDTH && tronTrails[i].y < MATRIX_HEIGHT) {
                     // Shift trail positions
                     if (tronTrails[i].currentLength >= TRON_MAX_LENGTH) {
                         // Remove tail

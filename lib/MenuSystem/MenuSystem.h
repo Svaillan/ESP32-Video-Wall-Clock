@@ -8,6 +8,7 @@
 #include "MatrixDisplayManager.h"
 #include "RTClib.h"
 #include "SettingsManager.h"
+#include "TimeManager.h"
 #include "WiFiManager.h"
 
 // Menu timing constants
@@ -23,7 +24,9 @@ enum AppState {
     EDIT_TIME_FORMAT,
     EDIT_CLOCK_COLOR,
     EDIT_EFFECTS,
+    EDIT_TIMEZONE,
     TIME_SET,
+    SYNC_NTP,  // New state for NTP sync
     WIFI_MENU,
     OTA_MENU
 };
@@ -40,6 +43,7 @@ class MenuSystem {
     EffectsEngine* effects;
     RTC_DS3231* rtc;
     WiFiManager* wifi;
+    TimeManager* timeManager;
 
     // Menu configuration
     static const char* menuItems[];
@@ -48,11 +52,18 @@ class MenuSystem {
     static const int EFFECT_OPTIONS;
     static const char* clockColorNames[];
     static const int CLOCK_COLOR_OPTIONS;
+    static const char* timezoneNames[];
+    static const int TIMEZONE_OPTIONS;
+    static const int timezoneOffsets[];
+    static const bool timezoneDST[];
+    static const int timezoneDSTOffset[];
+    static const char* timezoneCodes[];
 
     // Menu state
     int menuIndex;
     int effectMenuIndex;
     int clockColorMenuIndex;
+    int timezoneMenuIndex;
 
     // Time setting state
     int setHour, setMin, setSec;
@@ -77,6 +88,21 @@ class MenuSystem {
     bool waitingForSSID;      // True when waiting for SSID via serial
     bool waitingForPassword;  // True when waiting for password via serial
 
+    // NTP sync state management
+    enum NTPSyncState {
+        NTP_SYNC_IDLE,
+        NTP_SYNC_REQUESTED,
+        NTP_SYNC_IN_PROGRESS,
+        NTP_SYNC_SUCCESS,
+        NTP_SYNC_ERROR
+    };
+    NTPSyncState ntpSyncState;
+    String ntpSyncMessage;
+    unsigned long ntpSyncStartTime;
+    unsigned long ntpSyncAttemptTime;
+    static const unsigned long NTP_SYNC_DISPLAY_DURATION = 1500;  // ms
+    static const unsigned long NTP_SYNC_TIMEOUT = 8000;           // 8 second timeout
+
     // Menu display functions
     void displayMainMenu();
     void displayEffectsMenu();
@@ -84,6 +110,7 @@ class MenuSystem {
     void displayBrightnessMenu();
     void displayTimeFormatMenu();
     void displayClockColorMenu();
+    void displayTimezoneMenu();
 
     // Specialized menus
     void displayWiFiMenu();
@@ -98,6 +125,7 @@ class MenuSystem {
     void handleBrightnessInput();
     void handleTimeFormatInput();
     void handleClockColorInput();
+    void handleTimezoneInput();
 
     // Time setting functions
     void handleTimeSettingMode();
@@ -108,12 +136,23 @@ class MenuSystem {
    public:
     MenuSystem(MatrixDisplayManager* displayManager, SettingsManager* settingsManager,
                ButtonManager* buttonManager, EffectsEngine* effectsEngine, RTC_DS3231* rtcInstance,
-               WiFiManager* wifiManager);
+               WiFiManager* wifiManager, TimeManager* timeManager);
 
     void begin();
     void reset();
     void handleInput(AppState& appState);
     void updateDisplay(AppState appState);
+
+    // NTP sync management
+    bool isNTPSyncRequested() const {
+        return ntpSyncState == NTP_SYNC_REQUESTED;
+    }
+    void setNTPSyncInProgress() {
+        ntpSyncState = NTP_SYNC_IN_PROGRESS;
+        ntpSyncMessage = "Syncing NTP...";
+        ntpSyncStartTime = millis();
+    }
+    void setNTPSyncResult(bool success);
 
     // Menu entry check for main loop
     bool shouldEnterMenu();
@@ -125,6 +164,7 @@ class MenuSystem {
     AppState getBrightnessMenuNextState();
     AppState getTimeFormatMenuNextState();
     AppState getClockColorMenuNextState();
+    AppState getTimezoneMenuNextState();
     AppState getTimeSettingNextState();
 
     // Getters for main loop

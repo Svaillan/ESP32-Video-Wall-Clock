@@ -17,6 +17,7 @@ SettingsManager::SettingsManager() {
     effectMode = EFFECT_CONFETTI;
     use24HourFormat = true;  // Default to 24-hour format
     clockColorMode = CLOCK_WHITE;
+    timezoneIndex = 0;  // Default to Arizona (index 0)
 
     // WiFi defaults
     wifiEnabled = false;
@@ -56,6 +57,10 @@ void SettingsManager::setClockColorMode(ClockColorMode mode) {
     clockColorMode = mode;
 }
 
+void SettingsManager::setTimezoneIndex(int index) {
+    timezoneIndex = index;
+}
+
 void SettingsManager::setWiFiEnabled(bool enabled) {
     wifiEnabled = enabled;
 }
@@ -77,6 +82,7 @@ void SettingsManager::saveSettings() {
     EEPROM.write(EEPROM_ADDR_EFFECT_MODE, (uint8_t)effectMode);
     EEPROM.write(EEPROM_ADDR_TIME_FORMAT, use24HourFormat ? 1 : 0);
     EEPROM.write(EEPROM_ADDR_CLOCK_COLOR, (uint8_t)clockColorMode);
+    EEPROM.write(EEPROM_ADDR_TIMEZONE_INDEX, (uint8_t)timezoneIndex);
 
     // Save WiFi settings
     EEPROM.write(EEPROM_ADDR_WIFI_ENABLED, wifiEnabled ? 1 : 0);
@@ -116,6 +122,7 @@ void SettingsManager::loadSettings() {
         uint8_t savedEffectMode = EEPROM.read(EEPROM_ADDR_EFFECT_MODE);
         uint8_t savedTimeFormat = EEPROM.read(EEPROM_ADDR_TIME_FORMAT);
         uint8_t savedClockColor = EEPROM.read(EEPROM_ADDR_CLOCK_COLOR);
+        uint8_t savedTimezoneIndex = EEPROM.read(EEPROM_ADDR_TIMEZONE_INDEX);
 
         // Validate ranges before applying
         if (isValidTextSize(savedTextSize)) {
@@ -132,6 +139,11 @@ void SettingsManager::loadSettings() {
 
         if (isValidClockColorMode(savedClockColor)) {
             clockColorMode = (ClockColorMode)savedClockColor;
+        }
+
+        // Validate and load timezone index (0-23 for 24 timezones)
+        if (savedTimezoneIndex < 24) {
+            timezoneIndex = savedTimezoneIndex;
         }
 
         // Load WiFi settings

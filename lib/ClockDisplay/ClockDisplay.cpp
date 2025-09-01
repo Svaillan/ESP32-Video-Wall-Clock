@@ -1,19 +1,19 @@
 #include "ClockDisplay.h"
 
 ClockDisplay::ClockDisplay(MatrixDisplayManager* display, SettingsManager* settings,
-                           RTC_DS3231* rtc)
-    : display(display), settings(settings), rtc(rtc) {}
+                           RTC_DS3231* rtc, TimeManager* timeManager)
+    : display(display), settings(settings), rtc(rtc), timeManager(timeManager) {}
 
 void ClockDisplay::begin() {
     Serial.println("Clock Display initialized");
 }
 
 void ClockDisplay::displayTime() {
-    if (!rtc || !display) {
+    if (!timeManager || !display) {
         return;
     }
 
-    DateTime now = rtc->now();
+    DateTime now = timeManager->getLocalTime();  // Use TimeManager for timezone-aware time
     String timeString = formatTime(now);
 
     // Draw text background to ensure readability over effects

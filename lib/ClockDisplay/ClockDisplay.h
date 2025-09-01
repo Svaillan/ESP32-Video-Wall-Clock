@@ -7,11 +7,13 @@
 
 #include "MatrixDisplayManager.h"
 #include "SettingsManager.h"
+#include "TimeManager.h"
 
 class ClockDisplay {
    public:
     // Constructor
-    ClockDisplay(MatrixDisplayManager* display, SettingsManager* settings, RTC_DS3231* rtc);
+    ClockDisplay(MatrixDisplayManager* display, SettingsManager* settings, RTC_DS3231* rtc,
+                 TimeManager* timeManager);
 
     // Initialization
     void begin();
@@ -28,6 +30,7 @@ class ClockDisplay {
     MatrixDisplayManager* display;
     SettingsManager* settings;
     RTC_DS3231* rtc;
+    TimeManager* timeManager;
 
     // Helper methods
     String formatTime(DateTime now);
