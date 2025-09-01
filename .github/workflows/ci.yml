@@ -88,5 +88,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install --upgrade platformio
 
+    - name: Create dummy credentials file
+      run: |
+        echo "[ota_credentials]" > platformio_credentials.ini
+        echo "upload_port = 0.0.0.0" >> platformio_credentials.ini
+        echo "auth_password = dummy" >> platformio_credentials.ini
+
     - name: Build environment
       run: pio run -e ${{ matrix.environment }}
