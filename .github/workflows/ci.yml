@@ -7,11 +7,17 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  check-code-quality:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Create dummy credentials file
+      run: |
+        echo "[ota_credentials]" > platformio_credentials.ini
+        echo "upload_port = 0.0.0.0" >> platformio_credentials.ini
+        echo "auth_password = dummy" >> platformio_credentials.ini
 
     - name: Cache pip
       uses: actions/cache@v3
@@ -69,7 +75,7 @@ jobs:
       if: steps.check_tests.outputs.tests_exist == 'true'
       run: pio test
 
-  build-matrix:
+  compile-firmware:
     runs-on: ubuntu-latest
     strategy:
       matrix:
