@@ -12,19 +12,24 @@ A professional-grade, feature-rich digital clock display using an ESP32 microcon
 
 ## ✨ Features
 
-### 🕒 **Advanced Time Display**
+### 🕒 **Advanced Time & Synchronization**
+
 - **12/24 Hour Format**: Seamless switching between standard and military time
 - **DS3231 RTC Integration**: Battery-backed, precision timekeeping
-- **Adaptive Text Sizing**: Three size options (1, 2, 3) with intelligent layout
-- **Smart AM/PM Indicators**: Compact "A"/"P" display optimized for size 3 mode
+- **NTP (Network Time Protocol) Sync**: Automatic and manual network time synchronization, with non-blocking operation and user feedback
+- **Timezone & DST Support**: Dynamic timezone selection, UTC offset, and daylight saving time awareness
+- **OTA (Over-the-Air) Updates**: Menu-driven firmware updates with progress display and safe handling
+- **WiFi Configuration**: Menu-based WiFi setup, credentials management, and enable/disable logic
 
 ### 🎨 **Rich Visual Customization**
+
 - **16+ Clock Colors**: Full spectrum including Red, Green, Blue, Yellow, Cyan, Magenta, White, Orange, Purple, Pink, Lime, Teal, Indigo, Gold, Silver
 - **Rainbow Mode**: Smooth animated color cycling
 - **10-Level Brightness Control**: Precise adjustment for any environment
 - **Separate Effect Brightness**: Independent control for background animations
 
 ### 🎆 **Dynamic Background Effects**
+
 - **Confetti**: Colorful particle celebration
 - **Matrix Rain**: Green digital cascade (Acid Rain)
 - **Weather Effects**: Realistic rain and torrent simulations
@@ -33,7 +38,14 @@ A professional-grade, feature-rich digital clock display using an ESP32 microcon
 - **Fireworks**: Physics-based explosion animations
 - **Smart Masking**: Effects automatically avoid text areas
 
+### 🧩 **Modular & Maintainable Architecture**
+
+- **Fully Modular Libraries**: All major features separated into reusable libraries (AppStateManager, ButtonManager, ClockDisplay, EffectsEngine, MatrixDisplayManager, MenuSystem, SettingsManager, SystemManager, TimeManager, WiFiManager, WiFiInfoDisplay)
+- **Comprehensive Settings Management**: Persistent storage for all preferences, including time, effects, and connectivity
+- **Pre-commit Hooks & CI**: Automated code quality checks, formatting, and continuous integration
+
 ### 🎮 **Intuitive Interface**
+
 - **Live Preview**: Real-time effect and color preview while browsing
 - **Responsive Controls**: Optimized button timing and debouncing
 - **Visual Feedback**: Clear menu indicators and selection markers
@@ -54,6 +66,7 @@ This project features a **modular, maintainable architecture** with separated co
 ```
 
 ### 🔧 **Development Features**
+
 - **Automated Code Quality**: Pre-commit hooks with clang-format and cppcheck
 - **Cross-Platform Support**: Windows, Linux, macOS development environments
 - **Comprehensive Testing**: Automated CI/CD pipeline with GitHub Actions
@@ -62,6 +75,7 @@ This project features a **modular, maintainable architecture** with separated co
 ## 🛠️ **Hardware Requirements**
 
 ### **Core Components**
+
 | Component | Specification | Purpose |
 |-----------|---------------|---------|
 | **Microcontroller** | ESP32-D0WD-V3 or compatible | Main processing unit |
@@ -71,6 +85,7 @@ This project features a **modular, maintainable architecture** with separated co
 | **Power Supply** | 5V, 3-4A recommended | System power |
 
 ### **Pin Configuration**
+
 ```cpp
 // Matrix Interface (HUB75)
 R1, G1, B1, R2, G2, B2 → GPIO 25, 26, 27, 14, 12, 13
@@ -87,11 +102,13 @@ Up, Down, Select → GPIO pins of choice
 ## 🚀 **Quick Start**
 
 ### **Prerequisites**
+
 - Python 3.7+ with pip
 - Git
 - VS Code (recommended) or preferred IDE
 
 ### **Installation**
+
 ```bash
 # Clone the repository
 git clone https://github.com/Svaillan/ESP32-Video-Wall-Clock.git
@@ -111,22 +128,26 @@ pio device monitor
 ```
 
 ### **Development Setup**
+
 For detailed development instructions, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 📱 **Usage Guide**
 
 ### **First Boot**
+
 1. **Set Time**: Use menu system to configure current time
-2. **Choose Format**: Select 12H or 24H display
-3. **Customize Appearance**: Pick colors, effects, and brightness
-4. **Enjoy**: Settings auto-save to EEPROM
+1. **Choose Format**: Select 12H or 24H display
+1. **Customize Appearance**: Pick colors, effects, and brightness
+1. **Enjoy**: Settings auto-save to EEPROM
 
 ### **Menu Navigation**
+
 - **Select Button**: Enter/exit menus and confirm selections
 - **Up/Down**: Navigate options and adjust values
 - **Long Press Select**: Quick return to main clock display
 
 ### **Menu Structure**
+
 ```
 🏠 Main Menu
 ├── ⏰ Time Format (12H ↔ 24H)
@@ -140,12 +161,14 @@ For detailed development instructions, see [CONTRIBUTING.md](CONTRIBUTING.md).
 ## 📊 **Technical Specifications**
 
 ### **Performance**
+
 - **Memory Usage**: RAM ~8.6% (28,332 bytes), Flash ~25.6% (335,157 bytes)
 - **Refresh Rate**: 60+ FPS for smooth animations
-- **Response Time**: <10ms button debouncing
+- **Response Time**: \<10ms button debouncing
 - **Power Consumption**: ~15W typical (varies with brightness/effects)
 
 ### **Code Quality**
+
 - **Static Analysis**: cppcheck integration with embedded-specific rules
 - **Code Formatting**: clang-format with 100-column limit
 - **Cross-Platform**: Tested on Windows, Linux, macOS development environments
@@ -167,6 +190,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed information.
 This repository uses GitHub branch protection rules to maintain code quality:
 
 #### **Main Branch Protection Rules**
+
 - ✅ **Restrict deletions** - Main branch cannot be deleted
 - ✅ **Require pull request** - All changes must go through PR review
   - **Required approvals**: 1 reviewer minimum
@@ -177,15 +201,18 @@ This repository uses GitHub branch protection rules to maintain code quality:
 - ✅ **Block force pushes** - Additional protection against accidental overwrites
 
 #### **Contribution Process**
+
 All contributors must follow this workflow:
+
 1. Fork the repository or create a feature branch
-2. Make changes with proper commit messages
-3. Ensure CI checks pass (code formatting, builds, tests)
-4. Create a pull request with detailed description
-5. Address review feedback and resolve conversations
-6. Wait for approval before merge
+1. Make changes with proper commit messages
+1. Ensure CI checks pass (code formatting, builds, tests)
+1. Create a pull request with detailed description
+1. Address review feedback and resolve conversations
+1. Wait for approval before merge
 
 ### **Development Workflow**
+
 ```bash
 # Create feature branch
 git checkout -b feature/new-effect
@@ -200,6 +227,7 @@ git push origin feature/new-effect
 ## 📈 **Project Roadmap**
 
 ### **Planned Features**
+
 - [ ] WiFi time synchronization with NTP
 - [ ] Weather display integration
 - [ ] Custom color palette editor
@@ -207,6 +235,7 @@ git push origin feature/new-effect
 - [ ] Multiple time zone support
 
 ### **Completed Milestones**
+
 - [x] ✅ Modular architecture implementation
 - [x] ✅ Comprehensive development tooling
 - [x] ✅ Cross-platform compatibility
@@ -227,7 +256,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **PlatformIO** - For modern embedded development tools
 - **ESP32 Community** - For extensive documentation and support
 
----
+______________________________________________________________________
 
 <div align="center">
 
@@ -237,6 +266,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 </div>
 
----
+______________________________________________________________________
 
-> **📝 Documentation Note**: This README was generated with assistance from AI to ensure comprehensive, professional documentation standards. The technical content accurately reflects the implemented features and architecture of this project.
+> **📝 Documentation Note**: This README was generated with assistance from AI.
