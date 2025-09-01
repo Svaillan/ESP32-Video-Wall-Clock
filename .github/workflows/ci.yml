@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        environment: [esp32dev]
+        environment: [esp32dev-ci]
 
     steps:
     - uses: actions/checkout@v4
