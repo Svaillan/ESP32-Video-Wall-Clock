@@ -7,9 +7,10 @@ This directory is intended for project header files for the ESP32 LED Matrix Clo
 
 This project has been **refactored into a modular architecture** with separate libraries in the `lib/` directory. Each module has its own header and implementation files.
 
+
 ## Architecture Overview
 
-The modular design includes these components:
+The modular design now includes:
 
 ### Core Libraries (in `lib/` directory)
 - **`AppStateManager/`** - Centralized application state management
@@ -17,8 +18,12 @@ The modular design includes these components:
 - **`ClockDisplay/`** - Time rendering, formatting, and display logic
 - **`EffectsEngine/`** - Background animation system with particle effects
 - **`MatrixDisplayManager/`** - Hardware abstraction layer for HUB75 interface
-- **`MenuSystem/`** - Navigation, configuration, and user interface
+- **`MenuSystem/`** - Navigation, configuration, and user interface (now with NTP sync, WiFi, and OTA menu integration)
 - **`SettingsManager/`** - Persistent configuration storage with EEPROM
+- **`SystemManager/`** - System-level coordination, including NTP sync and OTA update handling
+- **`TimeManager/`** - RTC, NTP, timezone, and DST management
+- **`WiFiManager/`** - WiFi connection, credentials, and OTA update logic
+- **`WiFiInfoDisplay/`** - WiFi status and information display
 
 ### Global Headers (if needed)
 This directory can be used for:

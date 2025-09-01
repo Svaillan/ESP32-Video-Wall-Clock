@@ -5,25 +5,31 @@ Thank you for your interest in contributing to this project! Here are some guide
 ## Development Setup
 
 ### Prerequisites
+
 - Python 3.7+ with pip
 - Git
 - VS Code (recommended) or any text editor
 
 ### Getting Started
+
 1. Fork the repository
-2. Clone your fork:
+
+1. Clone your fork:
+
    ```bash
    git clone https://github.com/yourusername/ESP32-Video-Wall-Clock.git
    cd "ESP32-Video-Wall-Clock"
    ```
 
-3. Install development tools:
+1. Install development tools:
+
    ```bash
    pip install platformio pre-commit
    pre-commit install
    ```
 
-4. Build and test:
+1. Build and test:
+
    ```bash
    pio run
    pio test
@@ -38,6 +44,7 @@ This project uses automated code formatting and quality checks:
 - **Pre-commit Hooks**: Automatically run on commit
 
 ### Running Checks Manually
+
 ```bash
 # Run all pre-commit hooks
 pre-commit run --all-files
@@ -69,13 +76,16 @@ clang-format -i src/*.cpp    # Format code
 ## Making Changes
 
 ### Code Guidelines
+
 1. **Modular Design**: Keep code organized in logical libraries
-2. **Comments**: Document complex logic and hardware interfaces
-3. **Testing**: Add tests for new features when possible
-4. **Compatibility**: Ensure changes work across development platforms
+1. **Comments**: Document complex logic and hardware interfaces
+1. **Testing**: Add tests for new features when possible
+1. **Compatibility**: Ensure changes work across development platforms
 
 ### Commit Messages
+
 Use conventional commit format:
+
 ```
 feat: add new background effect
 fix: resolve button debouncing issue
@@ -83,14 +93,16 @@ docs: update installation instructions
 ```
 
 ### Pull Request Process
+
 1. Create a feature branch from `main`
-2. Make your changes
-3. Ensure all tests pass and pre-commit hooks succeed
-4. Submit a pull request with a clear description
+1. Make your changes
+1. Ensure all tests pass and pre-commit hooks succeed
+1. Submit a pull request with a clear description
 
 ## Reporting Issues
 
 When reporting bugs, please include:
+
 - Hardware configuration
 - PlatformIO version
 - Steps to reproduce

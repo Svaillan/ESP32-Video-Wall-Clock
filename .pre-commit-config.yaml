@@ -1,45 +1,49 @@
 repos:
-  - repo: https://gitlab.com/vojko.pribudic.foss/pre-commit-update
+-   repo: https://gitlab.com/vojko.pribudic.foss/pre-commit-update
     rev: v0.8.0
     hooks:
-      - id: pre-commit-update
-  - repo: https://github.com/compilerla/conventional-pre-commit
+    -   id: pre-commit-update
+-   repo: https://github.com/compilerla/conventional-pre-commit
     rev: v4.2.0
     hooks:
-      - id: conventional-pre-commit
+    -   id: conventional-pre-commit
         stages: [commit-msg]
-  - repo: https://github.com/pre-commit/pre-commit-hooks
+-   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
-      - id: end-of-file-fixer
-      - id: trailing-whitespace
-      - id: mixed-line-ending
+    -   id: end-of-file-fixer
+    -   id: trailing-whitespace
+    -   id: mixed-line-ending
 #     - id: check-json
-      - id: check-yaml
+    -   id: check-yaml
         args:
-          - --allow-multiple-documents
-      - id: check-added-large-files
+        -   --allow-multiple-documents
+    -   id: check-added-large-files
         args: ['--maxkb=1000']
-      - id: check-merge-conflict
-  - repo: https://github.com/pre-commit/mirrors-clang-format
+    -   id: check-merge-conflict
+-   repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v21.1.0
     hooks:
-      - id: clang-format
+    -   id: clang-format
         files: \.(c|cc|cxx|cpp|h|hpp|hxx)$
         # Uses .clang-format file in project root
-  - repo: https://github.com/pocc/pre-commit-hooks
+-   repo: https://github.com/pocc/pre-commit-hooks
     rev: v1.3.5
     hooks:
-      - id: cppcheck
-        args: [
-          '--enable=warning,style,performance,portability',
-          '--inconclusive',
-          '--suppressions-list=.cppcheck',
-          '--std=c++11',
-          '--platform=unix64',
-          '--inline-suppr'
-        ]
+    -   id: cppcheck
+        args: ['--enable=warning,style,performance,portability', '--inconclusive',
+          '--suppressions-list=.cppcheck', '--std=c++11', '--platform=unix64', '--inline-suppr']
         files: \.(c|cc|cxx|cpp)$
+
+-   repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.22
+    hooks:
+    -   id: mdformat
+        name: mdformat
+        types: [markdown]
+        files: \.(md|markdown)$
+        pass_filenames: true
+        always_run: false
 
   # PlatformIO specific checks
   # - repo: local

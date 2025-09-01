@@ -7,6 +7,7 @@ This directory contains **project-specific modular libraries** for the ESP32 LED
 
 This project implements a **professional modular architecture** with separated concerns:
 
+
 ### 📁 **Current Libraries**
 
 #### **`AppStateManager/`**
@@ -35,9 +36,34 @@ This project implements a **professional modular architecture** with separated c
 - **Features**: Display control, brightness management, text masking
 
 #### **`MenuSystem/`**
-- **Purpose**: Navigation and configuration interface
+- **Purpose**: Navigation and configuration interface (now with NTP sync, WiFi, and OTA integration)
 - **Files**: `MenuSystem.h`, `MenuSystem.cpp`
-- **Features**: Menu navigation, live preview, user interface
+- **Features**: Menu navigation, live preview, user interface, NTP sync request, WiFi/OTA setup
+
+#### **`SettingsManager/`**
+- **Purpose**: Persistent configuration storage
+- **Files**: `SettingsManager.h`, `SettingsManager.cpp`
+- **Features**: EEPROM-backed settings, WiFi credentials, effect and time preferences
+
+#### **`SystemManager/`**
+- **Purpose**: System-level coordination, including NTP sync and OTA update handling
+- **Files**: `SystemManager.h`, `SystemManager.cpp`
+- **Features**: Main loop integration, NTP/OTA priority handling
+
+#### **`TimeManager/`**
+- **Purpose**: RTC, NTP, timezone, and DST management
+- **Files**: `TimeManager.h`, `TimeManager.cpp`
+- **Features**: Non-blocking NTP sync, timezone/DST logic, RTC/NTP bridging
+
+#### **`WiFiManager/`**
+- **Purpose**: WiFi connection, credentials, and OTA update logic
+- **Files**: `WiFiManager.h`, `WiFiManager.cpp`
+- **Features**: WiFi setup, OTA update, connection status
+
+#### **`WiFiInfoDisplay/`**
+- **Purpose**: WiFi status and information display
+- **Files**: `WiFiInfoDisplay.h`, `WiFiInfoDisplay.cpp`
+- **Features**: Display SSID, IP, connection state
 
 #### **`SettingsManager/`**
 - **Purpose**: Persistent configuration storage
