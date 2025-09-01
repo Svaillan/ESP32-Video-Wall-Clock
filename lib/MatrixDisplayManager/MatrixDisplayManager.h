@@ -92,8 +92,10 @@ class MatrixDisplayManager {
     void getAuxiliaryTextBounds(int& x1, int& y1, int& x2, int& y2);
     bool isInTextArea(int x, int y, bool hasText = true);
     bool isInTextArea(int x, int y, bool hasText, int textSize);
+    bool isInTimeWithDateArea(int x, int y);
     void drawTextBackground();
     void drawTextBackground(int textSize);
+    void drawTimeWithDateBackground();  // New method for time with date mode
 
     // Legacy clock-specific functions (for compatibility)
     void getTimeDisplayBounds(int& x1, int& y1, int& x2, int& y2) {

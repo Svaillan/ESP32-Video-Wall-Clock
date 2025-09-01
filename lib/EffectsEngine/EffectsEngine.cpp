@@ -67,10 +67,17 @@ void EffectsEngine::setMenuPreviewMode(bool isPreview, int previewTextSize) {
     this->previewTextSize = previewTextSize;
 }
 
+void EffectsEngine::setDisplayMode(AppState displayMode) {
+    currentDisplayMode = displayMode;
+}
+
 // Helper function to check if position is in text area
 bool EffectsEngine::isInTextArea(int x, int y) {
     if (isMenuPreviewMode) {
         return display->isInTextArea(x, y, true, previewTextSize);
+    } else if (currentDisplayMode == SHOW_TIME_WITH_DATE) {
+        // For time with date mode, check both time area and date area
+        return display->isInTimeWithDateArea(x, y);
     } else {
         return display->isInTextArea(x, y, true);
     }

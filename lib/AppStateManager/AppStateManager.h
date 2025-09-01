@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 
+#include "AppState.h"
 #include "ButtonManager.h"
 #include "ClockDisplay.h"
 #include "EffectsEngine.h"
@@ -49,8 +50,18 @@ class AppStateManager {
 
     // Display update methods
     void renderTimeDisplay();
+    void renderTimeWithDateDisplay();
     void renderWiFiInfoDisplay();
     void renderMenus();
+
+    // Helper methods for state cycling
+    AppState getNextDisplayState(AppState current);
+    AppState getPreviousDisplayState(AppState current);
+
+    // Display state cycle definition
+    static const AppState DISPLAY_STATES[];
+    static const int DISPLAY_STATE_COUNT;
+    int getCurrentDisplayStateIndex();
 
     // Timing constants
     static const uint32_t CLOCK_UPDATE_DELAY = 5;  // Reduced from 10ms for more responsive buttons

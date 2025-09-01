@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 
+#include "AppState.h"
 #include "ButtonManager.h"
 #include "EffectsEngine.h"
 #include "MatrixDisplayManager.h"
@@ -13,23 +14,6 @@
 
 // Menu timing constants
 #define MENU_DELAY 20  // Reduced from 30ms for snappier response
-
-// Application states
-enum AppState {
-    SHOW_TIME,
-    SHOW_WIFI_INFO,
-    MENU,
-    EDIT_TEXT_SIZE,
-    EDIT_BRIGHTNESS,
-    EDIT_TIME_FORMAT,
-    EDIT_CLOCK_COLOR,
-    EDIT_EFFECTS,
-    EDIT_TIMEZONE,
-    TIME_SET,
-    SYNC_NTP,  // New state for NTP sync
-    WIFI_MENU,
-    OTA_MENU
-};
 
 // Time setting steps
 enum SetClockStep { NONE, SET_HOUR, SET_MINUTE, SET_SECOND, CONFIRM };

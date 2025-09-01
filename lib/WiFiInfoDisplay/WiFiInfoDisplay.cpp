@@ -56,18 +56,28 @@ void WiFiInfoDisplay::drawConnectedStatus() {
     String ip = wifi->getIPAddress();
     int rssi = WiFi.RSSI();
 
+    // Calculate vertical centering for text block
+    // 3 lines of text (8px each) + 2 gaps (1px each) = 26px total
+    // Center in 32px display: (32 - 26) / 2 = 3px offset
+    const int TEXT_HEIGHT = 8;
+    const int TEXT_SPACING = 1;
+    const int START_Y = 3;
+
     // Draw connection status
-    display->drawCenteredText("WiFi Connected", 1, display->applyBrightness(0x07E0), 2);  // Green
+    display->drawCenteredText("WiFi Connected", 1, display->applyBrightness(0x07E0),
+                              START_Y);  // Green
 
     // Draw SSID (scrolling if too long)
+    int ssidY = START_Y + TEXT_HEIGHT + TEXT_SPACING;
     if (ssid.length() > 16) {
-        scrollText(ssid.c_str(), 10, display->applyBrightness(0xFFFF));  // White
+        scrollText(ssid.c_str(), ssidY, display->applyBrightness(0xFFFF));  // White
     } else {
-        display->drawCenteredText(ssid.c_str(), 1, display->applyBrightness(0xFFFF), 10);
+        display->drawCenteredText(ssid.c_str(), 1, display->applyBrightness(0xFFFF), ssidY);
     }
 
     // Draw IP address
-    display->drawCenteredText(ip.c_str(), 1, display->applyBrightness(0x07FF), 18);  // Cyan
+    int ipY = ssidY + TEXT_HEIGHT + TEXT_SPACING;
+    display->drawCenteredText(ip.c_str(), 1, display->applyBrightness(0x07FF), ipY);  // Cyan
 
     // Draw signal strength bar (keep this)
     drawSignalStrength(rssi);
@@ -76,26 +86,46 @@ void WiFiInfoDisplay::drawConnectedStatus() {
 void WiFiInfoDisplay::drawDisconnectedStatus() {
     display->fillScreen(0);
 
-    // No symbol - just text
-    display->drawCenteredText("Disconnected", 1, display->applyBrightness(0xF800), 2);
-    display->drawCenteredText("Enable in Menu", 1, display->applyBrightness(0x8410), 20);
+    // Calculate vertical centering for 2 lines of text
+    // 2 lines of text (8px each) + 1 gap (1px) = 17px total
+    // Center in 32px display: (32 - 17) / 2 = 7.5px ≈ 8px offset
+    const int TEXT_HEIGHT = 8;
+    const int TEXT_SPACING = 1;
+    const int START_Y = 8;
+
+    display->drawCenteredText("Disconnected", 1, display->applyBrightness(0xF800), START_Y);
+    display->drawCenteredText("Enable in Menu", 1, display->applyBrightness(0x8410),
+                              START_Y + TEXT_HEIGHT + TEXT_SPACING);
 }
 
 void WiFiInfoDisplay::drawNotConfiguredStatus() {
     display->fillScreen(0);
 
-    // No symbol - just text
-    display->drawCenteredText("Not Configured", 1, display->applyBrightness(0xF800), 2);
-    display->drawCenteredText("Set Up in Menu", 1, display->applyBrightness(0x8410), 20);
+    // Calculate vertical centering for 2 lines of text
+    // 2 lines of text (8px each) + 1 gap (1px) = 17px total
+    // Center in 32px display: (32 - 17) / 2 = 7.5px ≈ 8px offset
+    const int TEXT_HEIGHT = 8;
+    const int TEXT_SPACING = 1;
+    const int START_Y = 8;
+
+    display->drawCenteredText("Not Configured", 1, display->applyBrightness(0xF800), START_Y);
+    display->drawCenteredText("Set Up in Menu", 1, display->applyBrightness(0x8410),
+                              START_Y + TEXT_HEIGHT + TEXT_SPACING);
 }
 
 void WiFiInfoDisplay::drawConnectingAnimation() {
     display->fillScreen(0);
 
+    // Calculate vertical centering for 3 lines of text (connecting, dots, ssid)
+    // 3 lines of text (8px each) + 2 gaps (1px each) = 26px total
+    // Center in 32px display: (32 - 26) / 2 = 3px offset
+    const int TEXT_HEIGHT = 8;
+    const int TEXT_SPACING = 1;
+    const int START_Y = 3;
+
     // Draw pulsing "Connecting..." text
     uint16_t color = display->applyBrightness(0xFFE0);  // Yellow
-
-    display->drawCenteredText("Connecting...", 1, color, 2);
+    display->drawCenteredText("Connecting...", 1, color, START_Y);
 
     // Draw animated dots
     int dotCount = (animationFrame / 5) % 4;
@@ -103,20 +133,24 @@ void WiFiInfoDisplay::drawConnectingAnimation() {
     for (int i = 0; i < dotCount; i++) {
         dots += ".";
     }
-    display->drawCenteredText(dots.c_str(), 1, color, 10);
+    int dotsY = START_Y + TEXT_HEIGHT + TEXT_SPACING;
+    display->drawCenteredText(dots.c_str(), 1, color, dotsY);
 
-    // No WiFi wave symbols - just text
+    // Draw SSID being connected to
     String ssid = "SSID: " + String(settings->getWiFiSSID());
-    display->drawCenteredText(ssid.c_str(), 1, display->applyBrightness(0x8410), 26);
+    int ssidY = dotsY + TEXT_HEIGHT + TEXT_SPACING;
+    display->drawCenteredText(ssid.c_str(), 1, display->applyBrightness(0x8410), ssidY);
 }
 
 void WiFiInfoDisplay::drawSignalStrength(int rssi) {
     int strength = getSignalStrength(rssi);
     uint16_t color = getSignalColor(strength);
 
-    // Draw signal bars at bottom right
-    int startX = MATRIX_WIDTH - 20;
-    int startY = MATRIX_HEIGHT - 8;
+    // Position signal bars in bottom right corner
+    // Each bar is 2px wide, spaced 3px apart: total width = 4*3 + 2 = 14px
+    // Position so the rightmost bar ends 2px from right edge
+    int startX = MATRIX_WIDTH - 16;  // 128 - 16 = 112, rightmost bar ends at x=126 (2px from edge)
+    int startY = 30;                 // Below the text with proper spacing
 
     for (int i = 0; i < 5; i++) {
         if (i < strength) {
