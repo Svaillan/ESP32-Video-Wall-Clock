@@ -28,6 +28,35 @@ void ClockDisplay::displayTime() {
     }
 }
 
+void ClockDisplay::displayTimeWithDate() {
+    if (!timeManager || !display) {
+        return;
+    }
+
+    DateTime now = timeManager->getLocalTime();   // Use TimeManager for timezone-aware time
+    String timeString = formatTimeWithAMPM(now);  // Include AM/PM in the time string
+    String dateString = formatDateWithDay(now);   // Include 3-char day code in brackets
+
+    // Draw text background to ensure readability over effects (use specialized method for time with
+    // date)
+    display->drawTimeWithDateBackground();
+
+    // Display time closer to center (not at very top)
+    int timeY = 8;  // Moved down from y=2 to y=8 for better centering
+    display->drawTightClock(timeString.c_str(), 1, display->getClockColor(), timeY);
+
+    // Display date with day code closer to center (not at very bottom)
+    int dateY = 20;  // Moved up from y=20, and no separate day line
+
+    display->setTextSize(1);
+    display->setTextColor(display->getClockColor());
+
+    // Center the date string
+    int dateX = (128 - (dateString.length() * 6)) / 2;
+    display->setCursor(dateX, dateY);
+    display->print(dateString.c_str());
+}
+
 String ClockDisplay::formatTime(DateTime now) {
     char timeStr[12];
 
@@ -46,6 +75,38 @@ String ClockDisplay::formatTime(DateTime now) {
     }
 
     return String(timeStr);
+}
+
+String ClockDisplay::formatTimeWithAMPM(DateTime now) {
+    char timeStr[16];  // Larger buffer to include AM/PM
+
+    if (settings->getUse24HourFormat()) {
+        // 24-hour format: HH:MM:SS (no AM/PM needed)
+        sprintf(timeStr, "%02d:%02d:%02d", now.hour(), now.minute(), now.second());
+    } else {
+        // 12-hour format: HH:MM:SS AM/PM (AM/PM included in string)
+        int hour = now.hour();
+        bool isPM = (hour >= 12);
+
+        if (hour == 0)
+            hour = 12;  // Midnight is 12 AM
+        if (hour > 12)
+            hour -= 12;  // Convert PM hours
+
+        sprintf(timeStr, "%02d:%02d:%02d %s", hour, now.minute(), now.second(), isPM ? "PM" : "AM");
+    }
+
+    return String(timeStr);
+}
+
+String ClockDisplay::formatDateWithDay(DateTime now) {
+    const char* dayAbbrev[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+    int dayOfWeek = now.dayOfTheWeek();
+
+    char dateStr[20];  // Buffer for date with day abbreviation
+    sprintf(dateStr, "%02d/%02d/%04d [%s]", now.month(), now.day(), now.year(),
+            dayAbbrev[dayOfWeek]);
+    return String(dateStr);
 }
 
 void ClockDisplay::displayAMPM(DateTime now) {

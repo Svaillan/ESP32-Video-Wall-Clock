@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 
+#include "AppState.h"
 #include "MatrixDisplayManager.h"
 #include "SettingsManager.h"
 
@@ -106,6 +107,7 @@ class EffectsEngine {
     // Effect Control
     void updateEffects();
     void setMenuPreviewMode(bool isPreview, int previewTextSize = 1);
+    void setDisplayMode(AppState displayMode);
 
     // Individual effect controls
     void initializeConfetti();
@@ -164,6 +166,9 @@ class EffectsEngine {
     // Menu preview mode
     bool isMenuPreviewMode = false;
     int previewTextSize = 1;
+
+    // Display mode tracking
+    AppState currentDisplayMode = SHOW_TIME;
 
     // Helper functions
     bool isInTextArea(int x, int y);

@@ -1,5 +1,9 @@
 #include "AppStateManager.h"
 
+// Define the display state cycle order
+const AppState AppStateManager::DISPLAY_STATES[] = {SHOW_TIME, SHOW_TIME_WITH_DATE, SHOW_WIFI_INFO};
+const int AppStateManager::DISPLAY_STATE_COUNT = sizeof(DISPLAY_STATES) / sizeof(DISPLAY_STATES[0]);
+
 AppStateManager::AppStateManager(ButtonManager* buttons, SettingsManager* settings,
                                  MatrixDisplayManager* display, EffectsEngine* effects,
                                  MenuSystem* menu, ClockDisplay* clock, WiFiInfoDisplay* wifiInfo)
@@ -31,15 +35,13 @@ void AppStateManager::setState(AppState newState) {
 }
 
 void AppStateManager::handleInput() {
-    // Handle mode switching in clock display states
-    if (currentState == SHOW_TIME) {
-        if (buttons->isDownJustPressed()) {
-            setState(SHOW_WIFI_INFO);
+    // Handle mode switching in display states with up/down keys
+    if (getCurrentDisplayStateIndex() != -1) {  // Current state is a display state
+        if (buttons->isUpJustPressed()) {
+            setState(getPreviousDisplayState(currentState));
             return;
-        }
-    } else if (currentState == SHOW_WIFI_INFO) {
-        if (buttons->isDownJustPressed()) {
-            setState(SHOW_TIME);
+        } else if (buttons->isDownJustPressed()) {
+            setState(getNextDisplayState(currentState));
             return;
         }
     }
@@ -58,6 +60,10 @@ void AppStateManager::updateDisplay() {
             renderTimeDisplay();
             break;
 
+        case SHOW_TIME_WITH_DATE:
+            renderTimeWithDateDisplay();
+            break;
+
         case SHOW_WIFI_INFO:
             renderWiFiInfoDisplay();
             break;
@@ -74,11 +80,28 @@ void AppStateManager::renderTimeDisplay() {
     // Disable button repeat for normal clock display
     buttons->setAllowButtonRepeat(false);
 
+    // Set display mode for effects engine
+    effects->setDisplayMode(SHOW_TIME);
+
     // Render background effects first
     effects->updateEffects();
 
     // Display current time on top
     clock->displayTime();
+}
+
+void AppStateManager::renderTimeWithDateDisplay() {
+    // Disable button repeat for clock with date display
+    buttons->setAllowButtonRepeat(false);
+
+    // Set display mode for effects engine
+    effects->setDisplayMode(SHOW_TIME_WITH_DATE);
+
+    // Render background effects first
+    effects->updateEffects();
+
+    // Display time with date
+    clock->displayTimeWithDate();
 }
 
 void AppStateManager::renderWiFiInfoDisplay() {
@@ -94,8 +117,36 @@ void AppStateManager::renderMenus() {
     menu->updateDisplay(currentState);
 }
 
+AppState AppStateManager::getNextDisplayState(AppState current) {
+    int currentIndex = getCurrentDisplayStateIndex();
+    if (currentIndex == -1)
+        return SHOW_TIME;  // Fallback
+
+    int nextIndex = (currentIndex + 1) % DISPLAY_STATE_COUNT;
+    return DISPLAY_STATES[nextIndex];
+}
+
+AppState AppStateManager::getPreviousDisplayState(AppState current) {
+    int currentIndex = getCurrentDisplayStateIndex();
+    if (currentIndex == -1)
+        return SHOW_TIME;  // Fallback
+
+    int prevIndex = (currentIndex - 1 + DISPLAY_STATE_COUNT) % DISPLAY_STATE_COUNT;
+    return DISPLAY_STATES[prevIndex];
+}
+
+int AppStateManager::getCurrentDisplayStateIndex() {
+    for (int i = 0; i < DISPLAY_STATE_COUNT; i++) {
+        if (DISPLAY_STATES[i] == currentState) {
+            return i;
+        }
+    }
+    return -1;  // Not found
+}
+
 void AppStateManager::processDelay() {
-    if (currentState == SHOW_TIME || currentState == SHOW_WIFI_INFO) {
+    if (currentState == SHOW_TIME || currentState == SHOW_TIME_WITH_DATE ||
+        currentState == SHOW_WIFI_INFO) {
         delay(CLOCK_UPDATE_DELAY);
     } else {
         delay(APP_MENU_DELAY);

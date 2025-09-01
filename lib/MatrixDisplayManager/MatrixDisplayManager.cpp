@@ -438,6 +438,60 @@ bool MatrixDisplayManager::isInTextArea(int x, int y, bool hasText, int textSize
     return false;
 }
 
+bool MatrixDisplayManager::isInTimeWithDateArea(int x, int y) {
+    // For the time with date mode, we need to check text areas:
+    // 1. Time area (centered, y=8) - includes AM/PM in the string now
+    // 2. Date area (centered, y=20) - includes day abbreviation in brackets
+
+    const int TIME_TEXT_SIZE = 1;  // Fixed smallest size for time with date mode
+
+    // Time area bounds - centered at y=8
+    // Account for longer time string with AM/PM included (e.g., "12:34:56 PM")
+    int timeWidth = 11 * 6 * TIME_TEXT_SIZE;  // 11 chars * 6 pixels per char for "HH:MM:SS AM"
+    int timeHeight = 8 * TIME_TEXT_SIZE;
+    int timeY = 8;  // Centered position
+
+    int timeX1 = (MATRIX_WIDTH - timeWidth) / 2 - 2;
+    int timeY1 = timeY - 2;
+    int timeX2 = timeX1 + timeWidth + 4;
+    int timeY2 = timeY1 + timeHeight + 4;
+
+    // Clamp to screen bounds
+    timeX1 = max(0, timeX1);
+    timeY1 = max(0, timeY1);
+    timeX2 = min(MATRIX_WIDTH - 1, timeX2);
+    timeY2 = min(MATRIX_HEIGHT - 1, timeY2);
+
+    // Check if in time area
+    if (x >= timeX1 && x <= timeX2 && y >= timeY1 && y <= timeY2) {
+        return true;
+    }
+
+    // Date area bounds - centered at y=20
+    // Account for date with day abbreviation (e.g., "12/25/2024 [FRI]")
+    int dateWidth = 16 * 6 * TIME_TEXT_SIZE;  // 16 chars * 6 pixels per char
+    int dateHeight = 8 * TIME_TEXT_SIZE;
+    int dateY = 20;  // Centered position
+
+    int dateX1 = (MATRIX_WIDTH - dateWidth) / 2 - 2;
+    int dateY1 = dateY - 2;
+    int dateX2 = dateX1 + dateWidth + 4;
+    int dateY2 = dateY1 + dateHeight + 4;
+
+    // Clamp to screen bounds
+    dateX1 = max(0, dateX1);
+    dateY1 = max(0, dateY1);
+    dateX2 = min(MATRIX_WIDTH - 1, dateX2);
+    dateY2 = min(MATRIX_HEIGHT - 1, dateY2);
+
+    // Check if in date area
+    if (x >= dateX1 && x <= dateX2 && y >= dateY1 && y <= dateY2) {
+        return true;
+    }
+
+    return false;
+}
+
 // Color utility functions
 uint16_t MatrixDisplayManager::randomVividColor() {
     uint8_t r = 0, g = 0, b = 0;
@@ -515,6 +569,51 @@ void MatrixDisplayManager::drawTextBackground(int textSize) {
         getAuxiliaryTextBounds(x1, y1, x2, y2);
         fillRect(x1, y1, x2 - x1 + 1, y2 - y1 + 1, 0x0000);
     }
+}
+
+void MatrixDisplayManager::drawTimeWithDateBackground() {
+    // Draw background for time with date mode - uses the same bounds as isInTimeWithDateArea
+    const int TIME_TEXT_SIZE = 1;  // Fixed smallest size for time with date mode
+
+    // Time area background - centered at y=8
+    // Account for longer time string with AM/PM included (e.g., "12:34:56 PM")
+    int timeWidth = 11 * 6 * TIME_TEXT_SIZE;  // 11 chars * 6 pixels per char for "HH:MM:SS AM"
+    int timeHeight = 8 * TIME_TEXT_SIZE;
+    int timeY = 8;  // Centered position
+
+    int timeX1 = (MATRIX_WIDTH - timeWidth) / 2 - 2;
+    int timeY1 = timeY - 2;
+    int timeX2 = timeX1 + timeWidth + 4;
+    int timeY2 = timeY1 + timeHeight + 4;
+
+    // Clamp to screen bounds
+    timeX1 = max(0, timeX1);
+    timeY1 = max(0, timeY1);
+    timeX2 = min(MATRIX_WIDTH - 1, timeX2);
+    timeY2 = min(MATRIX_HEIGHT - 1, timeY2);
+
+    // Draw time background
+    fillRect(timeX1, timeY1, timeX2 - timeX1 + 1, timeY2 - timeY1 + 1, 0x0000);
+
+    // Date area background - centered at y=20
+    // Account for date with day abbreviation (e.g., "12/25/2024 [FRI]")
+    int dateWidth = 16 * 6 * TIME_TEXT_SIZE;  // 16 chars * 6 pixels per char
+    int dateHeight = 8 * TIME_TEXT_SIZE;
+    int dateY = 20;  // Centered position
+
+    int dateX1 = (MATRIX_WIDTH - dateWidth) / 2 - 2;
+    int dateY1 = dateY - 2;
+    int dateX2 = dateX1 + dateWidth + 4;
+    int dateY2 = dateY1 + dateHeight + 4;
+
+    // Clamp to screen bounds
+    dateX1 = max(0, dateX1);
+    dateY1 = max(0, dateY1);
+    dateX2 = min(MATRIX_WIDTH - 1, dateX2);
+    dateY2 = min(MATRIX_HEIGHT - 1, dateY2);
+
+    // Draw date background
+    fillRect(dateX1, dateY1, dateX2 - dateX1 + 1, dateY2 - dateY1 + 1, 0x0000);
 }
 
 /**

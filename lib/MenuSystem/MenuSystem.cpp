@@ -42,49 +42,40 @@ const char* MenuSystem::timezoneCodes[] = {
 
 MenuSystem::MenuSystem(MatrixDisplayManager* displayManager, SettingsManager* settingsManager,
                        ButtonManager* buttonManager, EffectsEngine* effectsEngine,
-                       RTC_DS3231* rtcInstance, WiFiManager* wifiManager,
-                       TimeManager* timeManager) {
-    display = displayManager;
-    settings = settingsManager;
-    buttons = buttonManager;
-    effects = effectsEngine;
-    rtc = rtcInstance;
-    wifi = wifiManager;
-    this->timeManager = timeManager;
-
-    // Initialize menu state
-    menuIndex = 0;
-    effectMenuIndex = 0;
-    clockColorMenuIndex = 0;
-    timezoneMenuIndex = 0;
-
-    // Initialize time setting state
-    setHour = 0;
-    setMin = 0;
-    setSec = 0;
-    inSetMode = false;
-    timeSetEntryTime = 0;
-    lastEnterPress = 0;
-    entryLockProcessed = false;
-    setStep = NONE;
-
-    // Initialize menu entry state
-    blockMenuReentry = false;
-    enterPressTime = 0;
-    wasPressed = false;
-    previousState = SHOW_TIME;  // Default to time screen
-
+                       RTC_DS3231* rtcInstance, WiFiManager* wifiManager, TimeManager* timeManager)
+    : display(displayManager),
+      settings(settingsManager),
+      buttons(buttonManager),
+      effects(effectsEngine),
+      rtc(rtcInstance),
+      wifi(wifiManager),
+      timeManager(timeManager),
+      menuIndex(0),
+      effectMenuIndex(0),
+      clockColorMenuIndex(0),
+      timezoneMenuIndex(0),
+      setHour(0),
+      setMin(0),
+      setSec(0),
+      inSetMode(false),
+      timeSetEntryTime(0),
+      lastEnterPress(0),
+      entryLockProcessed(false),
+      setStep(NONE),
+      blockMenuReentry(false),
+      enterPressTime(0),
+      wasPressed(false),
+      previousState(SHOW_TIME),  // Initialize in initialization list
+      serialInputMode(false),
+      waitingForSSID(false),
+      waitingForPassword(false),
+      ntpSyncState(NTP_SYNC_IDLE),
+      ntpSyncMessage(""),
+      ntpSyncStartTime(0),
+      ntpSyncAttemptTime(0) {
+    // Initialize buffer arrays
     memset(wifiSSIDBuffer, 0, sizeof(wifiSSIDBuffer));
     memset(wifiPasswordBuffer, 0, sizeof(wifiPasswordBuffer));
-    serialInputMode = false;
-    waitingForSSID = false;
-    waitingForPassword = false;
-
-    // Initialize NTP sync state
-    ntpSyncState = NTP_SYNC_IDLE;
-    ntpSyncMessage = "";
-    ntpSyncStartTime = 0;
-    ntpSyncAttemptTime = 0;
 }
 
 void MenuSystem::begin() {
@@ -721,6 +712,7 @@ AppState MenuSystem::getTimeSettingNextState() {
 void MenuSystem::handleInput(AppState& appState) {
     switch (appState) {
         case SHOW_TIME:
+        case SHOW_TIME_WITH_DATE:
         case SHOW_WIFI_INFO:
             handleMenuEntry();
             if (shouldEnterMenu()) {

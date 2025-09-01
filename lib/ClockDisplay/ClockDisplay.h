@@ -20,6 +20,7 @@ class ClockDisplay {
 
     // Main clock display method
     void displayTime();
+    void displayTimeWithDate();  // New method for the date/time mode
 
     // Utility methods for text area bounds (for effects integration)
     void getTimeDisplayBounds(int& x1, int& y1, int& x2, int& y2);
@@ -34,6 +35,8 @@ class ClockDisplay {
 
     // Helper methods
     String formatTime(DateTime now);
+    String formatTimeWithAMPM(DateTime now);  // New method for time with AM/PM included
+    String formatDateWithDay(DateTime now);   // New method for date with 3-char day code
     void displayAMPM(DateTime now);
 };
 
