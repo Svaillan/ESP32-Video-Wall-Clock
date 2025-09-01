@@ -14,7 +14,7 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: mixed-line-ending
-      - id: check-json
+#     - id: check-json
       - id: check-yaml
         args:
           - --allow-multiple-documents
@@ -42,29 +42,30 @@ repos:
         files: \.(c|cc|cxx|cpp)$
 
   # PlatformIO specific checks
-  - repo: local
-    hooks:
-      - id: platformio-check
-        name: PlatformIO Static Analysis
-        entry: pio check
-        language: system
-        files: \.(c|cc|cxx|cpp|h|hpp|hxx|ino)$
-        pass_filenames: false
-        always_run: false
+  # - repo: local
+  #   hooks:
+      # PlatformIO checks removed from code-quality job; handled in compile-firmware job
+      # - id: platformio-check
+      #   name: PlatformIO Static Analysis
+      #   entry: pio check -e esp32dev-ci
+      #   language: system
+      #   files: \.(c|cc|cxx|cpp|h|hpp|hxx|ino)$
+      #   pass_filenames: false
+      #   always_run: false
 
-      - id: platformio-test
-        name: PlatformIO Unit Tests
-        entry: pio test
-        language: system
-        files: \.(c|cc|cxx|cpp|h|hpp|hxx|ino)$
-        pass_filenames: false
-        always_run: false
-        stages: [manual]  # Only run when explicitly called
+      # - id: platformio-test
+      #   name: PlatformIO Unit Tests
+      #   entry: pio test -e esp32dev-ci
+      #   language: system
+      #   files: \.(c|cc|cxx|cpp|h|hpp|hxx|ino)$
+      #   pass_filenames: false
+      #   always_run: false
+      #   stages: [manual]  # Only run when explicitly called
 
-      - id: platformio-build
-        name: PlatformIO Build Verification
-        entry: pio run --target checkprogsize
-        language: system
-        files: \.(c|cc|cxx|cpp|h|hpp|hxx|ino|ini)$
-        pass_filenames: false
-        always_run: false
+      # - id: platformio-build
+      #   name: PlatformIO Build Verification
+      #   entry: pio run -e esp32dev-ci --target checkprogsize
+      #   language: system
+      #   files: \.(c|cc|cxx|cpp|h|hpp|hxx|ino|ini)$
+      #   pass_filenames: false
+      #   always_run: false

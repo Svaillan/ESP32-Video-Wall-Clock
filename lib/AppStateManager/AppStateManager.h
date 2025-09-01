@@ -9,13 +9,14 @@
 #include "MatrixDisplayManager.h"
 #include "MenuSystem.h"
 #include "SettingsManager.h"
+#include "WiFiInfoDisplay.h"
 
 class AppStateManager {
    public:
     // Constructor
     AppStateManager(ButtonManager* buttons, SettingsManager* settings,
                     MatrixDisplayManager* display, EffectsEngine* effects, MenuSystem* menu,
-                    ClockDisplay* clock);
+                    ClockDisplay* clock, WiFiInfoDisplay* wifiInfo);
 
     // Initialization
     void begin();
@@ -41,12 +42,14 @@ class AppStateManager {
     EffectsEngine* effects;
     MenuSystem* menu;
     ClockDisplay* clock;
+    WiFiInfoDisplay* wifiInfo;
 
     // State management
     AppState currentState;
 
     // Display update methods
     void renderTimeDisplay();
+    void renderWiFiInfoDisplay();
     void renderMenus();
 
     // Timing constants

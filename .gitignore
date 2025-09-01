@@ -9,7 +9,6 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
-.vscode/settings.json
 
 # IDE - Other
 .idea/
@@ -45,6 +44,15 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Credentials and sensitive configuration
+credentials/ota_config.h
+credentials/*.ini
+!credentials/*.ini.example
+!credentials/*.h.example
+
+# Root level credentials files
+platformio_credentials.ini
+
 # Compiled Object files
 *.o
 *.obj
@@ -74,11 +82,6 @@ __pycache__/
 # PlatformIO test results
 test_results/
 test_report.json
-
-# Documentation build artifacts
-docs/_build/
-docs/html/
-docs/latex/
 
 # Hardware debugging files
 *.trace

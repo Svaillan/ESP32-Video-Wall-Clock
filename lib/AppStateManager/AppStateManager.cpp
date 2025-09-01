@@ -2,13 +2,14 @@
 
 AppStateManager::AppStateManager(ButtonManager* buttons, SettingsManager* settings,
                                  MatrixDisplayManager* display, EffectsEngine* effects,
-                                 MenuSystem* menu, ClockDisplay* clock)
+                                 MenuSystem* menu, ClockDisplay* clock, WiFiInfoDisplay* wifiInfo)
     : buttons(buttons),
       settings(settings),
       display(display),
       effects(effects),
       menu(menu),
       clock(clock),
+      wifiInfo(wifiInfo),
       currentState(SHOW_TIME),
       blockMenuReentry(false),
       enterPressTime(0),
@@ -30,7 +31,20 @@ void AppStateManager::setState(AppState newState) {
 }
 
 void AppStateManager::handleInput() {
-    // Let MenuSystem handle all input and state transitions
+    // Handle mode switching in clock display states
+    if (currentState == SHOW_TIME) {
+        if (buttons->isDownJustPressed()) {
+            setState(SHOW_WIFI_INFO);
+            return;
+        }
+    } else if (currentState == SHOW_WIFI_INFO) {
+        if (buttons->isDownJustPressed()) {
+            setState(SHOW_TIME);
+            return;
+        }
+    }
+
+    // Let MenuSystem handle all other input and state transitions
     menu->handleInput(currentState);
 }
 
@@ -42,6 +56,10 @@ void AppStateManager::updateDisplay() {
     switch (currentState) {
         case SHOW_TIME:
             renderTimeDisplay();
+            break;
+
+        case SHOW_WIFI_INFO:
+            renderWiFiInfoDisplay();
             break;
 
         default:
@@ -63,13 +81,21 @@ void AppStateManager::renderTimeDisplay() {
     clock->displayTime();
 }
 
+void AppStateManager::renderWiFiInfoDisplay() {
+    // Disable button repeat for WiFi info display
+    buttons->setAllowButtonRepeat(false);
+
+    // Update WiFi info display
+    wifiInfo->updateDisplay();
+}
+
 void AppStateManager::renderMenus() {
     // Handle all menu states with MenuSystem
     menu->updateDisplay(currentState);
 }
 
 void AppStateManager::processDelay() {
-    if (currentState == SHOW_TIME) {
+    if (currentState == SHOW_TIME || currentState == SHOW_WIFI_INFO) {
         delay(CLOCK_UPDATE_DELAY);
     } else {
         delay(APP_MENU_DELAY);

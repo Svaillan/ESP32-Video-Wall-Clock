@@ -1,8 +1,9 @@
 #include "MenuSystem.h"
 
 // Static menu data
-const char* MenuSystem::menuItems[] = {"Text Size", "Brightness", "Time Format", "Clock Color",
-                                       "Effects",   "Set Clock",  "Exit"};
+const char* MenuSystem::menuItems[] = {"Text Size",   "Brightness", "Time Format",
+                                       "Clock Color", "Effects",    "Set Clock",
+                                       "WiFi Setup",  "OTA Setup",  "Exit"};
 const int MenuSystem::MENU_ITEMS = sizeof(menuItems) / sizeof(menuItems[0]);
 const char* MenuSystem::effectNames[] = {"Confetti", "Acid",      "Rain", "Torrent", "Stars",
                                          "Sparkles", "Fireworks", "Tron", "Off"};
@@ -14,12 +15,13 @@ const int MenuSystem::CLOCK_COLOR_OPTIONS = sizeof(clockColorNames) / sizeof(clo
 
 MenuSystem::MenuSystem(MatrixDisplayManager* displayManager, SettingsManager* settingsManager,
                        ButtonManager* buttonManager, EffectsEngine* effectsEngine,
-                       RTC_DS3231* rtcInstance) {
+                       RTC_DS3231* rtcInstance, WiFiManager* wifiManager) {
     display = displayManager;
     settings = settingsManager;
     buttons = buttonManager;
     effects = effectsEngine;
     rtc = rtcInstance;
+    wifi = wifiManager;
 
     // Initialize menu state
     menuIndex = 0;
@@ -40,6 +42,13 @@ MenuSystem::MenuSystem(MatrixDisplayManager* displayManager, SettingsManager* se
     blockMenuReentry = false;
     enterPressTime = 0;
     wasPressed = false;
+    previousState = SHOW_TIME;  // Default to time screen
+
+    memset(wifiSSIDBuffer, 0, sizeof(wifiSSIDBuffer));
+    memset(wifiPasswordBuffer, 0, sizeof(wifiPasswordBuffer));
+    serialInputMode = false;
+    waitingForSSID = false;
+    waitingForPassword = false;
 }
 
 void MenuSystem::begin() {
@@ -66,28 +75,30 @@ void MenuSystem::handleMenuEntry() {
         if (!buttons->isEnterPressed())
             blockMenuReentry = false;
     } else {
-        if (buttons->isEnterPressed() && !wasPressed) {
+        // Use justPressed logic for consistency with menu navigation
+        if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating()) {
             enterPressTime = millis();
             wasPressed = true;
-        }
-        if (!buttons->isEnterPressed() && wasPressed) {
-            if (millis() - enterPressTime < 1000) {
-                // Will transition to MENU state in main code
-            }
-            wasPressed = false;
-            blockMenuReentry = true;
+            blockMenuReentry = true;  // Prevent immediate re-entry
         }
     }
 }
 
 bool MenuSystem::shouldEnterMenu() {
-    // Don't enter menu if blocked or if we haven't recorded a valid press time
-    if (blockMenuReentry || wasPressed || enterPressTime == 0) {
+    // Check if we have a recent press recorded and not blocked
+    if (blockMenuReentry || !wasPressed || enterPressTime == 0) {
         return false;
     }
 
+    // Menu entry should happen immediately after the press is detected
+    // Add a small debounce to prevent multiple rapid entries
     uint32_t timeSincePress = millis() - enterPressTime;
-    return (timeSincePress < 1000 && timeSincePress > 50);  // Small debounce
+    if (timeSincePress > 50) {  // Small debounce period
+        wasPressed = false;     // Reset the press flag
+        return true;
+    }
+
+    return false;
 }
 
 void MenuSystem::displayMainMenu() {
@@ -157,7 +168,13 @@ void MenuSystem::handleMainMenuInput() {
                 lastEnterPress = 0;
                 entryLockProcessed = false;
             } break;
-            case 6:  // Exit
+            case 6:  // WiFi Setup
+                // Will transition to WIFI_MENU in main code
+                break;
+            case 7:  // OTA Setup
+                // Will transition to OTA_MENU in main code
+                break;
+            case 8:  // Exit
                 // Will transition to SHOW_TIME in main code
                 break;
         }
@@ -180,11 +197,15 @@ AppState MenuSystem::getNextState() {
             case 5:
                 return TIME_SET;
             case 6:
-                // Exiting to time display - reset menu entry state
+                return WIFI_MENU;
+            case 7:
+                return OTA_MENU;
+            case 8:
+                // Exiting to previous screen - reset menu entry state
                 blockMenuReentry = true;
                 wasPressed = false;
                 enterPressTime = 0;
-                return SHOW_TIME;
+                return previousState;
         }
     }
     return MENU;  // Stay in menu
@@ -404,15 +425,6 @@ AppState MenuSystem::getClockColorMenuNextState() {
 void MenuSystem::handleTimeSettingMode() {
     static bool blinkState = true;
     static uint32_t lastBlink = 0;
-    static bool debugPrinted = false;
-    static SetClockStep lastSetStep = NONE;
-
-    if (setStep != lastSetStep) {
-        debugPrinted = false;
-        lastSetStep = setStep;
-    }
-
-    debugPrinted = true;
 
     // Handle blinking at 500ms intervals
     if (millis() - lastBlink > 500) {
@@ -452,35 +464,24 @@ void MenuSystem::handleTimeSettingMode() {
                 break;
             case SET_MINUTE:
                 setMin = (setMin + 1) % 60;
-                Serial.print("Minute: ");
-                Serial.println(setMin);
                 break;
             case SET_SECOND:
                 setSec = (setSec + 1) % 60;
-                Serial.print("Second: ");
-                Serial.println(setSec);
                 break;
         }
     }
 
     if (buttons->isDownJustPressed()) {
-        buttons->clearDownJustPressed();  // Immediately consume the button press
-        Serial.print("DOWN pressed (consumed)! ");
+        buttons->clearDownJustPressed();
         switch (setStep) {
             case SET_HOUR:
                 setHour = (setHour + 23) % 24;
-                Serial.print("Hour: ");
-                Serial.println(setHour);
                 break;
             case SET_MINUTE:
                 setMin = (setMin + 59) % 60;
-                Serial.print("Minute: ");
-                Serial.println(setMin);
                 break;
             case SET_SECOND:
                 setSec = (setSec + 59) % 60;
-                Serial.print("Second: ");
-                Serial.println(setSec);
                 break;
         }
     }
@@ -488,23 +489,17 @@ void MenuSystem::handleTimeSettingMode() {
     // Handle field progression
     if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating() &&
         millis() - lastEnterPress > 150) {
-        buttons->clearEnterJustPressed();  // Consume the button press
+        buttons->clearEnterJustPressed();
         lastEnterPress = millis();
-        Serial.print("ENTER pressed in time setting! Current step: ");
-        Serial.println(setStep);
 
         switch (setStep) {
             case SET_HOUR:
                 setStep = SET_MINUTE;
-                Serial.println("Advancing to SET_MINUTE");
                 break;
             case SET_MINUTE:
                 setStep = SET_SECOND;
-                Serial.println("Advancing to SET_SECOND");
                 break;
             case SET_SECOND:
-                // Apply the set time to RTC
-                Serial.println("Setting RTC time and exiting");
                 rtc->adjust(DateTime(2024, 1, 1, setHour, setMin, setSec));
                 setStep = NONE;
                 inSetMode = false;
@@ -549,11 +544,11 @@ void MenuSystem::handleTimeSettingMode() {
 
 AppState MenuSystem::getTimeSettingNextState() {
     if (setStep == NONE && !inSetMode) {
-        // Exiting to time display - reset menu entry state
+        // Exiting to previous screen - reset menu entry state
         blockMenuReentry = true;
         wasPressed = false;
         enterPressTime = 0;
-        return SHOW_TIME;
+        return previousState;
     }
     return TIME_SET;  // Stay in time setting mode
 }
@@ -561,8 +556,10 @@ AppState MenuSystem::getTimeSettingNextState() {
 void MenuSystem::handleInput(AppState& appState) {
     switch (appState) {
         case SHOW_TIME:
+        case SHOW_WIFI_INFO:
             handleMenuEntry();
             if (shouldEnterMenu()) {
+                previousState = appState;  // Remember which screen we came from
                 appState = MENU;
                 menuIndex = 0;
                 // Reset menu entry state to prevent immediate re-entry
@@ -605,10 +602,74 @@ void MenuSystem::handleInput(AppState& appState) {
             handleTimeSettingMode();
             appState = getTimeSettingNextState();
             break;
+
+        case WIFI_MENU:
+            // Handle DOWN button long press for forget network
+            static uint32_t downPressStartTime = 0;
+            static bool downLongPressProcessed = false;
+
+            if (buttons->isDownPressed()) {
+                if (downPressStartTime == 0) {
+                    downPressStartTime = millis();
+                    downLongPressProcessed = false;
+                }
+                // Check for 5 second hold
+                if (!downLongPressProcessed && (millis() - downPressStartTime) > 5000) {
+                    // Forget network and enter serial mode
+                    settings->setWiFiCredentials("", "");
+                    settings->setWiFiEnabled(false);
+                    settings->saveSettings();
+                    startSerialWiFiSetup();
+                    downLongPressProcessed = true;
+                    break;
+                }
+            } else {
+                downPressStartTime = 0;
+                downLongPressProcessed = false;
+            }
+
+            // Handle UP button to toggle WiFi or enter serial mode
+            if (buttons->isUpJustPressed()) {
+                if (strlen(settings->getWiFiSSID()) > 0) {
+                    // Toggle WiFi on/off (keep stored credentials)
+                    bool newState = !settings->isWiFiEnabled();
+                    settings->setWiFiEnabled(newState);
+                    settings->saveSettings();
+
+                    if (newState) {
+                        // If we just enabled WiFi, try to connect immediately
+                        wifi->reconnectWithNewCredentials(settings->getWiFiSSID(),
+                                                          settings->getWiFiPassword());
+                    } else {
+                        // If we just disabled WiFi, disconnect from network
+                        wifi->disconnect();
+                    }
+                } else {
+                    // No stored credentials, enter serial setup mode
+                    startSerialWiFiSetup();
+                }
+            }
+            // Handle ENTER button to save and leave menu
+            if (buttons->isEnterJustPressed()) {
+                appState = MENU;
+            }
+            break;
+
+        case OTA_MENU:
+            // Handle ENTER button to return to main menu
+            if (buttons->isEnterJustPressed()) {
+                appState = MENU;
+            }
+            break;
     }
 }
 
 void MenuSystem::updateDisplay(AppState appState) {
+    // Don't update display if OTA is in progress (to allow screen blanking)
+    if (wifi && wifi->isOTAInProgress()) {
+        return;
+    }
+
     switch (appState) {
         case MENU:
             buttons->setAllowButtonRepeat(false);  // Disable repeating for menu navigation
@@ -644,5 +705,208 @@ void MenuSystem::updateDisplay(AppState appState) {
             buttons->setAllowButtonRepeat(true);  // Enable repeating for time setting
             handleTimeSettingMode();
             break;
+
+        case WIFI_MENU:
+            buttons->setAllowButtonRepeat(false);
+            displayWiFiMenu();
+            // Handle serial WiFi input if active
+            if (serialInputMode) {
+                handleSerialWiFiInput();
+                // Return to normal WiFi menu when serial input is complete
+                if (!serialInputMode) {
+                    // Input complete, stay in WiFi menu to show updated status
+                }
+            }
+            break;
+
+        case OTA_MENU:
+            buttons->setAllowButtonRepeat(false);
+            displayOTAMenu();
+            break;
+    }
+}
+
+// WiFi Menu Implementation
+void MenuSystem::displayWiFiMenu() {
+    static const char* instructionText = "";
+
+    // Update instruction text based on current state
+    if (serialInputMode) {
+        if (waitingForSSID) {
+            instructionText = "Enter SSID via Serial Monitor";
+        } else if (waitingForPassword) {
+            instructionText = "Enter Password via Serial (or Enter for open network)";
+        } else {
+            instructionText = "Serial Setup Complete - Connecting to WiFi...";
+        }
+    } else {
+        if (strlen(settings->getWiFiSSID()) > 0) {
+            instructionText =
+                "UP = WiFi ON/OFF | HOLD DOWN (5sec) = Forget Network | E = Exit Menu";
+        } else {
+            instructionText = "UP = Setup WiFi via Serial | ENTER = Exit Menu";
+        }
+    }
+
+    // === TOP: Connection Status ===
+    char statusLine[64];
+    uint16_t statusColor;
+
+    if (wifi->isConnected()) {
+        // Just show the SSID in green when connected
+        snprintf(statusLine, sizeof(statusLine), "%s", settings->getWiFiSSID());
+        statusColor = display->applyBrightness(0x07E0);  // Green
+    } else if (strlen(settings->getWiFiSSID()) > 0) {
+        // Just show "DISCONNECTED" when have credentials but not connected
+        strcpy(statusLine, "DISCONNECTED");
+        statusColor = display->applyBrightness(0xF800);  // Red
+    } else {
+        // No stored credentials
+        strcpy(statusLine, "NO NETWORK CONFIGURED");
+        statusColor = display->applyBrightness(0xF800);  // Red
+    }
+
+    display->drawCenteredTextWithBox(statusLine, 1, statusColor, 0x0000, 2);
+
+    // === MIDDLE: MAC Address ===
+    String macAddress = WiFi.macAddress();
+    // Center the MAC address in the middle section (between top status and bottom instructions)
+    int macY = (MATRIX_HEIGHT / 2) - 4;  // Center of screen minus half text height
+    display->drawCenteredText(macAddress.c_str(), 1, display->applyBrightness(0xFFE0),
+                              macY);  // Yellow
+
+    // === BOTTOM: Scrolling Instructions ===
+    int textWidth = strlen(instructionText) * 6;  // Approximate character width
+    int displayWidth = MATRIX_WIDTH;
+
+    // Only scroll if text is wider than display
+    if (textWidth > displayWidth) {
+        static uint32_t scrollTime = 0;
+        static int scrollOffset = 0;
+
+        if (millis() - scrollTime > 80) {  // Scroll every 80ms for smooth movement
+            scrollOffset++;
+            if (scrollOffset > textWidth + 10) {  // Reset for endless scrolling
+                scrollOffset = 0;                 // Reset to start immediately for endless loop
+            }
+            scrollTime = millis();
+        }
+
+        // Draw scrolling text
+        display->setTextColor(display->applyBrightness(0xF81F));  // Purple to match menu options
+        display->setTextSize(1);
+        display->setCursor(displayWidth - scrollOffset, MATRIX_HEIGHT - 8);
+        display->print(instructionText);
+    } else {
+        // Text fits, just center it
+        display->drawCenteredText(instructionText, 1, display->applyBrightness(0xF81F),
+                                  MATRIX_HEIGHT - 8);  // Purple to match menu options
+    }
+}
+
+void MenuSystem::displayOTAMenu() {
+    if (wifi->isConnected()) {
+        // Show IP address
+        char ipLine[32];
+        snprintf(ipLine, sizeof(ipLine), "%s", wifi->getIPAddress().c_str());
+        display->drawCenteredText(ipLine, 1, display->applyBrightness(0x07FF), 10);  // Cyan
+
+        // Show current OTA password
+        String otaPassword = wifi->getOTAPassword();
+        char passwordLine[32];
+        snprintf(passwordLine, sizeof(passwordLine), "%s", otaPassword.c_str());
+        display->drawCenteredText(passwordLine, 1, display->applyBrightness(0xFFE0), 18);  // Yellow
+    } else {
+        display->drawCenteredText("WiFi Not Connected", 1, display->applyBrightness(0xF800),
+                                  16);  // Red
+    }
+}
+
+void MenuSystem::startSerialWiFiSetup() {
+    serialInputMode = true;
+    waitingForSSID = true;
+    waitingForPassword = false;
+
+    Serial.println();
+    Serial.println("=== WiFi Setup via Serial ===");
+    Serial.println("Enter WiFi SSID (network name):");
+    Serial.print("> ");
+
+    // Clear any existing input
+    while (Serial.available()) {
+        Serial.read();
+    }
+}
+
+void MenuSystem::handleSerialWiFiInput() {
+    if (!serialInputMode)
+        return;
+
+    if (Serial.available()) {
+        String input = Serial.readStringUntil('\n');
+        input.trim();  // Remove whitespace
+
+        if (waitingForSSID) {
+            if (input.length() > 0 && input.length() < 32) {
+                strncpy(wifiSSIDBuffer, input.c_str(), 31);
+                wifiSSIDBuffer[31] = '\0';
+
+                Serial.println("SSID: " + input);
+                Serial.println("Enter WiFi Password (or press Enter for open network):");
+                Serial.print("> ");
+
+                waitingForSSID = false;
+                waitingForPassword = true;
+            } else {
+                Serial.println("Invalid SSID length (1-31 characters). Try again:");
+                Serial.print("> ");
+            }
+        } else if (waitingForPassword) {
+            if (input.length() < 64) {  // Allow empty password for open networks
+                strncpy(wifiPasswordBuffer, input.c_str(), 63);
+                wifiPasswordBuffer[63] = '\0';
+
+                if (input.length() == 0) {
+                    Serial.println("Password: (none - open network)");
+                } else {
+                    Serial.println("Password: " +
+                                   String('*').substring(0, input.length()));  // Show asterisks
+                }
+                Serial.println();
+                Serial.println("WiFi credentials saved!");
+                Serial.println("SSID: " + String(wifiSSIDBuffer));
+                if (strlen(wifiPasswordBuffer) == 0) {
+                    Serial.println("Password: (none - open network)");
+                } else {
+                    Serial.println("Password: " +
+                                   String('*').substring(0, strlen(wifiPasswordBuffer)));
+                }
+
+                // Save credentials
+                settings->setWiFiCredentials(wifiSSIDBuffer, wifiPasswordBuffer);
+                settings->saveSettings();
+
+                // Try to connect immediately instead of waiting for restart
+                Serial.println("Attempting to connect to WiFi...");
+                wifi->reconnectWithNewCredentials(wifiSSIDBuffer, wifiPasswordBuffer);
+
+                // Reset state
+                serialInputMode = false;
+                waitingForSSID = false;
+                waitingForPassword = false;
+
+                // Check connection status and inform user
+                if (wifi->isConnected()) {
+                    Serial.println("WiFi connected successfully!");
+                    Serial.println("IP Address: " + wifi->getIPAddress());
+                } else {
+                    Serial.println("WiFi connection failed. Check credentials and try again.");
+                    Serial.println("You can also restart the device to retry connection.");
+                }
+            } else {
+                Serial.println("Invalid password length (0-63 characters). Try again:");
+                Serial.print("> ");
+            }
+        }
     }
 }
