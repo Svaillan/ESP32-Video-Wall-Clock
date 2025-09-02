@@ -142,208 +142,64 @@ pio device monitor
 
 ### **Development Setup**
 
-For detailed development instructions, see [CONTRIBUTING.md](CONTRIBUTING.md).
+````markdown
+# ESP32 LED Matrix Clock
 
-## 📱 **Usage Guide**
+[![PlatformIO CI](https://github.com/Svaillan/ESP32-Video-Wall-Clock/workflows/PlatformIO%20CI/badge.svg)](https://github.com/Svaillan/ESP32-Video-Wall-Clock/actions) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-### **First Boot**
+An ESP32-powered digital clock for a 128x32 RGB LED matrix with customizable visuals, effects, and a REST message API.
 
-1. **Set Time**: Use menu system to configure current time
-1. **Choose Format**: Select 12H or 24H display
-1. **Customize Appearance**: Pick colors, effects, and brightness
-1. **Enjoy**: Settings auto-save to EEPROM
+Highlights
+----------
+- 12/24 hour support with DS3231 RTC and optional NTP sync.
+- OTA updates and menu-driven WiFi configuration.
+- Multiple background effects (fireworks, confetti, matrix rain, etc.) with smart masking to avoid text.
+- HTTP message API with password protection, queuing, and priority handling.
+- Modular codebase split into reusable libraries for clarity and testing.
 
-### **Menu Navigation**
+Quick start
+-----------
 
-- **Select Button**: Enter/exit menus and confirm selections
-- **Up/Down**: Navigate options and adjust values
-- **Long Press Select**: Quick return to main clock display
+Prerequisites: Python 3.7+, PlatformIO, Git
 
-### **Menu Structure**
+```bash
+git clone https://github.com/Svaillan/ESP32-Video-Wall-Clock.git
+cd "ESP32-Video-Wall-Clock"
+pip install platformio pre-commit
+pre-commit install
+pio run --target upload
+pio device monitor
+````
 
-```
-🏠 Main Menu
-├── ⏰ Time Format (12H ↔ 24H)
-├── 🎨 Clock Color (16 colors + 🌈 Rainbow)
-├── ✨ Background Effects (8 animations + Off)
-├── 📏 Text Size (Small/Medium/Large)
-├── 💡 Brightness (10 levels)
-└── ⚙️ Set Time (Hour/Minute adjustment)
-```
+## Message API (example)
 
-## � **Messaging API**
-
-### **Configuration**
-
-Configure message API security in `credentials/message_config.h`:
+Set the password in `credentials/message_config.h`:
 
 ```cpp
-// Leave empty string "" to disable password protection
 #define MESSAGE_API_PASSWORD "your_secure_password"
 ```
 
-### **Endpoints**
-
-#### **POST /messages** - Send a message
+Send a message with a bearer token:
 
 ```bash
-# With Bearer token authentication
-curl -X POST http://192.168.1.100/messages \
+curl -X POST http://<device-ip>/messages \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your_secure_password" \
-  -d '{"text":"Hello World!","priority":"normal"}'
-
-# With query parameter authentication (fallback)
-curl -X POST "http://192.168.1.100/messages?password=your_secure_password" \
-  -H "Content-Type: application/json" \
-  -d '{"text":"Hello World!","priority":"high"}'
+  -d '{"text":"Hello","priority":"normal"}'
 ```
 
-**Priority Levels:**
+## Documentation and tests
 
-- `normal` - Standard message display
+See `CONTRIBUTING.md` for development setup, and the `MESSAGE_SYSTEM_TEST.md` for message-specific test cases.
+
+## License
+
+MIT — see `LICENSE`.
+
+## Author
+
+Stephen Vaillancourt
+
+```
 - `high` - Interrupts current display
-- `urgent` - Interrupts current display
-
-#### **GET /status** - System status
-
-```bash
-curl -H "Authorization: Bearer your_secure_password" \
-  http://192.168.1.100/status
 ```
-
-**Response:**
-
-```json
-{
-  "ip": "192.168.1.100",
-  "pending_queue": 0,
-  "pending_capacity": 6,
-  "display_queue": 1,
-  "display_capacity": 8,
-  "free_heap": 270548,
-  "rate_limit_ms": 500,
-  "max_message_length": 500,
-  "auth_required": true
-}
-```
-
-### **Security Features**
-
-- **Rate Limiting**: 500ms minimum between messages
-- **Length Validation**: 500 character maximum
-- **Memory Protection**: Low memory rejection (< 50KB free)
-- **Queue Management**: Overflow protection with HTTP 503 responses
-- **Authentication**: Bearer token or query parameter support
-
-## �📊 **Technical Specifications**
-
-### **Performance**
-
-- **Memory Usage**: RAM ~8.6% (28,332 bytes), Flash ~25.6% (335,157 bytes)
-- **Refresh Rate**: 60+ FPS for smooth animations
-- **Response Time**: \<10ms button debouncing
-- **Power Consumption**: ~15W typical (varies with brightness/effects)
-
-### **Code Quality**
-
-- **Static Analysis**: cppcheck integration with embedded-specific rules
-- **Code Formatting**: clang-format with 100-column limit
-- **Cross-Platform**: Tested on Windows, Linux, macOS development environments
-- **CI/CD**: Automated testing and quality checks on every commit
-
-## 🤝 **Contributing**
-
-We welcome contributions! This project follows modern development practices:
-
-- **Code Style**: Automated formatting with clang-format
-- **Quality Gates**: Pre-commit hooks ensure code quality
-- **Testing**: Comprehensive test suite with PlatformIO
-- **Documentation**: Clear contributing guidelines
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed information.
-
-### **Repository Governance**
-
-This repository uses GitHub branch protection rules to maintain code quality:
-
-#### **Main Branch Protection Rules**
-
-- ✅ **Restrict deletions** - Main branch cannot be deleted
-- ✅ **Require pull request** - All changes must go through PR review
-  - **Required approvals**: 1 reviewer minimum
-  - **Dismiss stale reviews** when new commits are pushed
-  - **Require up-to-date branches** before merging
-- ✅ **Require status checks** - CI/CD must pass before merge
-- ✅ **Require conversation resolution** - All PR comments must be resolved
-- ✅ **Block force pushes** - Additional protection against accidental overwrites
-
-#### **Contribution Process**
-
-All contributors must follow this workflow:
-
-1. Fork the repository or create a feature branch
-1. Make changes with proper commit messages
-1. Ensure CI checks pass (code formatting, builds, tests)
-1. Create a pull request with detailed description
-1. Address review feedback and resolve conversations
-1. Wait for approval before merge
-
-### **Development Workflow**
-
-```bash
-# Create feature branch
-git checkout -b feature/new-effect
-
-# Make changes (pre-commit hooks run automatically)
-git commit -m "feat: add aurora background effect"
-
-# Push and create pull request
-git push origin feature/new-effect
-```
-
-## 📈 **Project Roadmap**
-
-### **Planned Features**
-
-- [ ] WiFi time synchronization with NTP
-- [ ] Weather display integration
-- [ ] Custom color palette editor
-- [ ] Web-based configuration interface
-- [ ] Multiple time zone support
-
-### **Completed Milestones**
-
-- [x] ✅ Modular architecture implementation
-- [x] ✅ Comprehensive development tooling
-- [x] ✅ Cross-platform compatibility
-- [x] ✅ Automated testing pipeline
-- [x] ✅ Professional documentation
-
-## 📄 **License**
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 👨‍💻 **Author**
-
-**Stephen Vaillancourt** - *Project Creator and Maintainer*
-
-## 🙏 **Acknowledgments**
-
-- **Adafruit** - For excellent LED matrix libraries
-- **PlatformIO** - For modern embedded development tools
-- **ESP32 Community** - For extensive documentation and support
-
-______________________________________________________________________
-
-<div align="center">
-
-**Built with ❤️ using PlatformIO and Arduino Framework**
-
-[Report Bug](https://github.com/Svaillan/ESP32-Video-Wall-Clock/issues) · [Request Feature](https://github.com/Svaillan/ESP32-Video-Wall-Clock/issues) · [Contribute](CONTRIBUTING.md)
-
-</div>
-
-______________________________________________________________________
-
-> **📝 Documentation Note**: This README was generated with assistance from AI.

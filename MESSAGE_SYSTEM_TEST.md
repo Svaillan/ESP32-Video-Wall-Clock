@@ -75,13 +75,100 @@ curl -i -X POST http://192.168.0.107/messages \
 
 Monitor the device with:
 
+````markdown
+# Message System — Quick Test Guide
+
+This file gives concise steps to test the message subsystem (no code changes required).
+
+Overview
+--------
+- Navigate to the SHOW_MESSAGES state (use Up/Down buttons).
+- The screen shows a "waiting for message" placeholder until a message arrives.
+- Messages scroll right→left in font size 2 with a full-width background box.
+- High/urgent priorities interrupt the current display and are shown immediately.
+- Press Select/Enter to cancel the current message and return to the previous screen.
+- Messages queue and display one after another.
+
+Basic tests
+-----------
+
+1) Check status
+
+```bash
+curl -i http://192.168.0.107/status
+````
+
+2. Send a normal message
+
+```bash
+curl -i -X POST http://192.168.0.107/messages \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello from coworker!","priority":"normal"}'
+```
+
+3. Send a high-priority message
+
+```bash
+curl -i -X POST http://192.168.0.107/messages \
+  -H "Content-Type: application/json" \
+  -d '{"text":"URGENT: Meeting in 5 minutes!","priority":"high"}'
+```
+
+4. Queue multiple messages
+
+```bash
+curl -i -X POST http://192.168.0.107/messages \
+  -H "Content-Type: application/json" \
+  -d '[{"text":"First","priority":"normal"},{"text":"Second","priority":"normal"},{"text":"Third urgent","priority":"urgent"}]'
+```
+
+## Authentication
+
+The message API can be protected with a password. Set it in `credentials/message_config.h`:
+
+```cpp
+// Leave empty string "" to disable password protection
+#define MESSAGE_API_PASSWORD "your_secure_password"
+```
+
+Examples for sending a message with credentials:
+
+- Bearer token (recommended):
+
+```bash
+curl -i -X POST http://192.168.0.107/messages \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_secure_password" \
+  -d '{"text":"Hello with auth","priority":"normal"}'
+```
+
+- Query parameter fallback:
+
+```bash
+curl -i -X POST "http://192.168.0.107/messages?password=your_secure_password" \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello with auth","priority":"normal"}'
+```
+
+## Notes
+
+- If `MESSAGE_API_PASSWORD` is an empty string, authentication is disabled.
+- The system enforces rate limiting (default 500ms) and a max message length (default 500 chars).
+
+## Serial monitor
+
+Run the serial monitor and look for MessageClient logs:
+
 ```bash
 pio device monitor -e esp32dev
 ```
 
-Look for these log messages:
+Expected logs include:
 
-- "MessageClient: HTTP server started on port 80"
-- "MessageClient: queued message: ..."
-- "Enqueue message: ..."
-- "Starting message display: ..."
+- MessageClient: HTTP server started on port 80
+- MessageClient: queued message: ...
+- Enqueue message: ...
+- Starting message display: ...
+
+```
+```
