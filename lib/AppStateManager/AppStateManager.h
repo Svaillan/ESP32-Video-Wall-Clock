@@ -52,7 +52,12 @@ class AppStateManager {
     void renderTimeDisplay();
     void renderTimeWithDateDisplay();
     void renderWiFiInfoDisplay();
+    void renderMessageDisplay();
     void renderMenus();
+
+    // Message state management
+    AppState previousStateBeforeMessage;
+    bool wasInterruptedByMessage;
 
     // Helper methods for state cycling
     AppState getNextDisplayState(AppState current);

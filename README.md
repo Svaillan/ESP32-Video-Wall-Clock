@@ -38,6 +38,19 @@ A professional-grade, feature-rich digital clock display using an ESP32 microcon
 - **Fireworks**: Physics-based explosion animations
 - **Smart Masking**: Effects automatically avoid text areas
 
+### 📡 **Messaging System**
+
+- **HTTP API**: RESTful endpoint for sending scrolling messages
+- **Password Protection**: Configurable API authentication for security
+- **Priority Levels**: Normal, high, and urgent message priorities
+- **Queue Management**: Dual-queue system (6 pending + 8 display slots)
+- **Rate Limiting**: Configurable message frequency protection
+- **Memory Monitoring**: Automatic low-memory protection
+- **Length Validation**: Configurable maximum message length (500 chars)
+- **Real-time Display**: Smooth right-to-left scrolling with configurable speed
+- **High Priority Interruption**: Urgent messages interrupt current display
+- **Enter Key Cancellation**: Quick manual message dismissal
+
 ### 🧩 **Modular & Maintainable Architecture**
 
 - **Fully Modular Libraries**: All major features separated into reusable libraries (AppStateManager, ButtonManager, ClockDisplay, EffectsEngine, MatrixDisplayManager, MenuSystem, SettingsManager, SystemManager, TimeManager, WiFiManager, WiFiInfoDisplay)
@@ -129,143 +142,64 @@ pio device monitor
 
 ### **Development Setup**
 
-For detailed development instructions, see [CONTRIBUTING.md](CONTRIBUTING.md).
+````markdown
+# ESP32 LED Matrix Clock
 
-## 📱 **Usage Guide**
+[![PlatformIO CI](https://github.com/Svaillan/ESP32-Video-Wall-Clock/workflows/PlatformIO%20CI/badge.svg)](https://github.com/Svaillan/ESP32-Video-Wall-Clock/actions) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-### **First Boot**
+An ESP32-powered digital clock for a 128x32 RGB LED matrix with customizable visuals, effects, and a REST message API.
 
-1. **Set Time**: Use menu system to configure current time
-1. **Choose Format**: Select 12H or 24H display
-1. **Customize Appearance**: Pick colors, effects, and brightness
-1. **Enjoy**: Settings auto-save to EEPROM
+Highlights
+----------
+- 12/24 hour support with DS3231 RTC and optional NTP sync.
+- OTA updates and menu-driven WiFi configuration.
+- Multiple background effects (fireworks, confetti, matrix rain, etc.) with smart masking to avoid text.
+- HTTP message API with password protection, queuing, and priority handling.
+- Modular codebase split into reusable libraries for clarity and testing.
 
-### **Menu Navigation**
+Quick start
+-----------
 
-- **Select Button**: Enter/exit menus and confirm selections
-- **Up/Down**: Navigate options and adjust values
-- **Long Press Select**: Quick return to main clock display
-
-### **Menu Structure**
-
-```
-🏠 Main Menu
-├── ⏰ Time Format (12H ↔ 24H)
-├── 🎨 Clock Color (16 colors + 🌈 Rainbow)
-├── ✨ Background Effects (8 animations + Off)
-├── 📏 Text Size (Small/Medium/Large)
-├── 💡 Brightness (10 levels)
-└── ⚙️ Set Time (Hour/Minute adjustment)
-```
-
-## 📊 **Technical Specifications**
-
-### **Performance**
-
-- **Memory Usage**: RAM ~8.6% (28,332 bytes), Flash ~25.6% (335,157 bytes)
-- **Refresh Rate**: 60+ FPS for smooth animations
-- **Response Time**: \<10ms button debouncing
-- **Power Consumption**: ~15W typical (varies with brightness/effects)
-
-### **Code Quality**
-
-- **Static Analysis**: cppcheck integration with embedded-specific rules
-- **Code Formatting**: clang-format with 100-column limit
-- **Cross-Platform**: Tested on Windows, Linux, macOS development environments
-- **CI/CD**: Automated testing and quality checks on every commit
-
-## 🤝 **Contributing**
-
-We welcome contributions! This project follows modern development practices:
-
-- **Code Style**: Automated formatting with clang-format
-- **Quality Gates**: Pre-commit hooks ensure code quality
-- **Testing**: Comprehensive test suite with PlatformIO
-- **Documentation**: Clear contributing guidelines
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed information.
-
-### **Repository Governance**
-
-This repository uses GitHub branch protection rules to maintain code quality:
-
-#### **Main Branch Protection Rules**
-
-- ✅ **Restrict deletions** - Main branch cannot be deleted
-- ✅ **Require pull request** - All changes must go through PR review
-  - **Required approvals**: 1 reviewer minimum
-  - **Dismiss stale reviews** when new commits are pushed
-  - **Require up-to-date branches** before merging
-- ✅ **Require status checks** - CI/CD must pass before merge
-- ✅ **Require conversation resolution** - All PR comments must be resolved
-- ✅ **Block force pushes** - Additional protection against accidental overwrites
-
-#### **Contribution Process**
-
-All contributors must follow this workflow:
-
-1. Fork the repository or create a feature branch
-1. Make changes with proper commit messages
-1. Ensure CI checks pass (code formatting, builds, tests)
-1. Create a pull request with detailed description
-1. Address review feedback and resolve conversations
-1. Wait for approval before merge
-
-### **Development Workflow**
+Prerequisites: Python 3.7+, PlatformIO, Git
 
 ```bash
-# Create feature branch
-git checkout -b feature/new-effect
+git clone https://github.com/Svaillan/ESP32-Video-Wall-Clock.git
+cd "ESP32-Video-Wall-Clock"
+pip install platformio pre-commit
+pre-commit install
+pio run --target upload
+pio device monitor
+````
 
-# Make changes (pre-commit hooks run automatically)
-git commit -m "feat: add aurora background effect"
+## Message API (example)
 
-# Push and create pull request
-git push origin feature/new-effect
+Set the password in `credentials/message_config.h`:
+
+```cpp
+#define MESSAGE_API_PASSWORD "your_secure_password"
 ```
 
-## 📈 **Project Roadmap**
+Send a message with a bearer token:
 
-### **Planned Features**
+```bash
+curl -X POST http://<device-ip>/messages \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_secure_password" \
+  -d '{"text":"Hello","priority":"normal"}'
+```
 
-- [ ] WiFi time synchronization with NTP
-- [ ] Weather display integration
-- [ ] Custom color palette editor
-- [ ] Web-based configuration interface
-- [ ] Multiple time zone support
+## Documentation and tests
 
-### **Completed Milestones**
+See `CONTRIBUTING.md` for development setup, and the `MESSAGE_SYSTEM_TEST.md` for message-specific test cases.
 
-- [x] ✅ Modular architecture implementation
-- [x] ✅ Comprehensive development tooling
-- [x] ✅ Cross-platform compatibility
-- [x] ✅ Automated testing pipeline
-- [x] ✅ Professional documentation
+## License
 
-## 📄 **License**
+MIT — see `LICENSE`.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Author
 
-## 👨‍💻 **Author**
+Stephen Vaillancourt
 
-**Stephen Vaillancourt** - *Project Creator and Maintainer*
-
-## 🙏 **Acknowledgments**
-
-- **Adafruit** - For excellent LED matrix libraries
-- **PlatformIO** - For modern embedded development tools
-- **ESP32 Community** - For extensive documentation and support
-
-______________________________________________________________________
-
-<div align="center">
-
-**Built with ❤️ using PlatformIO and Arduino Framework**
-
-[Report Bug](https://github.com/Svaillan/ESP32-Video-Wall-Clock/issues) · [Request Feature](https://github.com/Svaillan/ESP32-Video-Wall-Clock/issues) · [Contribute](CONTRIBUTING.md)
-
-</div>
-
-______________________________________________________________________
-
-> **📝 Documentation Note**: This README was generated with assistance from AI.
+```
+- `high` - Interrupts current display
+```

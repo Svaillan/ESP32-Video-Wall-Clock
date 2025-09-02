@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Natural star twinkling behavior (was too robotic)
 - Text area detection with proper bounding box calculation
 - Array bounds checking in time display functions
+- Message system: restored display rendering (`display->show()`), improved message centering, and corrected bounding box sizing
+- Scrolling behavior: message now scrolls until the last character exits the display
 
 ## [2.0.0] - 2025-08-31
 

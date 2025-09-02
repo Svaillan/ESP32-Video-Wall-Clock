@@ -1,7 +1,20 @@
 #include "MatrixDisplayManager.h"
 
 MatrixDisplayManager::MatrixDisplayManager(Adafruit_Protomatter* matrix, SettingsManager* settings)
-    : matrix(matrix), settings(settings) {}
+    : mqHead(0),
+      mqTail(0),
+      mqCount(0),
+      hasActiveMessage(false),
+      activeTextSize(1),
+      activeScrollX(0),
+      activeScrollDir(1),
+      activeStartTime(0),
+      activeLastScroll(0),
+      activeDuration(0),
+      activeScrollSpeed(50),
+      activeColor(0xFFFF),
+      matrix(matrix),
+      settings(settings) {}
 
 void MatrixDisplayManager::begin() {
     matrix->setTextWrap(false);
@@ -247,8 +260,12 @@ int MatrixDisplayManager::getCenteredX(const char* text, int textSize) {
 }
 
 int MatrixDisplayManager::getCenteredY(int textSize) {
-    int textHeight = 8 * textSize;
-    return (MATRIX_HEIGHT - textHeight) / 2;
+    // Use actual text bounds for precise centering
+    matrix->setTextSize(textSize);
+    int16_t x1, y1;
+    uint16_t w, h;
+    matrix->getTextBounds("Ag", 0, 0, &x1, &y1, &w, &h);  // Use "Ag" for baseline + ascender
+    return (MATRIX_HEIGHT - h) / 2 - y1;  // Center the actual text, not just the cursor position
 }
 
 void MatrixDisplayManager::drawCenteredText(const char* text, int textSize, uint16_t color, int y) {
@@ -274,9 +291,12 @@ void MatrixDisplayManager::drawCenteredTextWithBox(const char* text, int textSiz
 
     int x = getCenteredX(text, textSize);
 
-    // Calculate text dimensions for background box
-    int textWidth = strlen(text) * 6 * textSize;  // Approximate width
-    int textHeight = 8 * textSize;                // Standard character height
+    // Calculate actual text dimensions for background box
+    // Make sure we use the correct text size for bounds calculation
+    matrix->setTextSize(textSize);
+    int16_t x1, y1;
+    uint16_t textWidth, textHeight;
+    matrix->getTextBounds(text, 0, 0, &x1, &y1, &textWidth, &textHeight);
 
     // Add padding around text
     int padding = 2;
@@ -549,6 +569,171 @@ float MatrixDisplayManager::generateVelocity(float minSpeed, float maxSpeed, boo
     }
 
     return velocity;
+}
+
+void MatrixDisplayManager::enqueueMessage(const char* id, const char* text, const char* priority) {
+    // Non-blocking enqueue into circular buffer
+    Serial.print("Enqueue message: ");
+    Serial.println(text);
+
+    if (mqCount >= MESSAGE_QUEUE_SIZE) {
+        Serial.println("Message queue full, dropping message");
+        return;
+    }
+
+    messageQueue[mqTail].id = String(id);
+    messageQueue[mqTail].text = String(text);
+    messageQueue[mqTail].priority = String(priority);
+    mqTail = (mqTail + 1) % MESSAGE_QUEUE_SIZE;
+    mqCount++;
+}
+
+bool MatrixDisplayManager::hasQueuedMessages() const {
+    return mqCount > 0 || hasActiveMessage;
+}
+
+bool MatrixDisplayManager::hasActiveHighPriorityMessage() const {
+    return hasActiveMessage && (activePriority == "high" || activePriority == "urgent");
+}
+
+void MatrixDisplayManager::cancelActiveMessage() {
+    hasActiveMessage = false;
+    activeId = "";
+    activeText = "";
+    activePriority = "";
+}
+
+int MatrixDisplayManager::getQueueCount() const {
+    return mqCount;
+}
+
+void MatrixDisplayManager::processMessageQueue() {
+    // If no active message, dequeue next
+    if (!hasActiveMessage && mqCount > 0) {
+        // Dequeue
+        const auto& item = messageQueue[mqHead];
+        activeId = item.id;
+        activeText = item.text;
+        activePriority = item.priority;
+        mqHead = (mqHead + 1) % MESSAGE_QUEUE_SIZE;
+        mqCount--;
+
+        // Initialize active message state
+        hasActiveMessage = true;
+        activeTextSize = 2;  // Always use size 2 for messages as requested
+        activeColor = getClockColor();
+
+        // Get scroll speed from settings (applies to all messages regardless of priority)
+        MessageScrollSpeed speedSetting = settings->getMessageScrollSpeed();
+        Serial.print("Message scroll speed setting: ");
+        Serial.println((int)speedSetting);
+        switch (speedSetting) {
+            case MSG_SCROLL_SLOW:
+                activeScrollSpeed = 51;  // Slow - was original normal speed
+                Serial.println("Using SLOW scroll speed: 51ms");
+                break;
+            case MSG_SCROLL_MEDIUM:
+                activeScrollSpeed = 25;  // Medium - was original fast speed
+                Serial.println("Using MEDIUM scroll speed: 25ms");
+                break;
+            case MSG_SCROLL_FAST:
+                activeScrollSpeed = 6;  // Fast - twice as fast as before
+                Serial.println("Using FAST scroll speed: 6ms");
+                break;
+            default:
+                activeScrollSpeed = 25;  // Default to medium if invalid
+                Serial.println("Using DEFAULT scroll speed: 25ms");
+                break;
+        }
+
+        // Set duration - same for all priorities
+        activeDuration = 8000;  // 8s for all messages
+
+        activeStartTime = millis();
+        activeLastScroll = millis();
+
+        // Start message from right edge of screen
+        activeScrollX = MATRIX_WIDTH;
+        activeScrollDir = -1;  // Moving left
+
+        // Debug: Show initial setup values
+        setTextSize(activeTextSize);
+        int16_t x1, y1;
+        uint16_t debugWidth, debugHeight;
+        getTextBounds(activeText.c_str(), 0, 0, &x1, &y1, &debugWidth, &debugHeight);
+        Serial.print("Starting message display: ");
+        Serial.println(activeText);
+        Serial.print("Text width: ");
+        Serial.print(debugWidth);
+        Serial.print(", Matrix width: ");
+        Serial.print(MATRIX_WIDTH);
+        Serial.print(", Starting scroll position: ");
+        Serial.println(activeScrollX);
+    }
+
+    // If active, render the message
+    if (hasActiveMessage) {
+        // Clear screen but don't call effects here - they'll be called after in main loop
+        fillScreen(0);
+
+        // Update scroll position for marquee effect
+        unsigned long now = millis();
+        if (now - activeLastScroll >= activeScrollSpeed) {
+            activeLastScroll = now;
+
+            // Calculate text width for this message
+            setTextSize(activeTextSize);
+            int16_t x1, y1;
+            uint16_t textWidth, textHeight;
+            getTextBounds(activeText.c_str(), 0, 0, &x1, &y1, &textWidth, &textHeight);
+
+            // Move text from right to left
+            activeScrollX -= 1;
+
+            // Check if the last letter has completely scrolled off the left side of screen
+            // The text is completely gone when the rightmost pixel is at position -1 or less
+            // activeScrollX is the left edge, so right edge is activeScrollX + textWidth - 1
+            int rightEdge = activeScrollX + (int)textWidth - 1;
+
+            if (rightEdge < 0) {
+                Serial.print("Message scroll complete - right edge at position: ");
+                Serial.println(rightEdge);
+                // Message finished scrolling, mark as complete
+                hasActiveMessage = false;
+                activeId = "";
+                activeText = "";
+                activePriority = "";
+                return;
+            }
+        }
+
+        // Calculate centered Y position for size 2 text
+        int centeredY = getCenteredY(activeTextSize);
+
+        // Draw background box for the message - full width of screen
+        setTextSize(activeTextSize);
+        int16_t x1, y1;
+        uint16_t textWidth, textHeight;
+        getTextBounds(activeText.c_str(), 0, 0, &x1, &y1, &textWidth, &textHeight);
+
+        // Calculate bounding box dimensions - full width, text height
+        int padding = 3;
+        int boxX = 0;  // Full width starts at left edge
+        int boxY = centeredY - padding;
+        int boxWidth = MATRIX_WIDTH;  // Full width of screen
+        int boxHeight = textHeight + (2 * padding);
+
+        // Draw full-width background box
+        fillRect(boxX, boxY, boxWidth, boxHeight, 0x0000);
+
+        // Draw the message text
+        setTextColor(activeColor);
+        setCursor(activeScrollX, centeredY);
+        print(activeText.c_str());
+
+        // Remove timeout - let message complete its full scroll
+        // The message will end when it finishes scrolling off screen
+    }
 }
 
 /**

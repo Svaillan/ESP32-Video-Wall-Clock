@@ -24,7 +24,7 @@
 #define SHOOTING_STAR_SPEED 0.8f
 #define SHOOTING_STAR_TRAIL_LENGTH 8
 
-#define NUM_SPARKLES 30
+#define NUM_SPARKLES 200
 #define SPARKLE_DURATION 800
 
 #define NUM_FIREWORKS 8
@@ -83,6 +83,7 @@ struct Firework {
     uint32_t startTime;
     bool active;
     bool exploded;
+    int explosionHeight;  // Height at which this firework will explode
 };
 
 struct TronTrail {

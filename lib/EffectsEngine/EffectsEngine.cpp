@@ -74,10 +74,30 @@ void EffectsEngine::setDisplayMode(AppState displayMode) {
 // Helper function to check if position is in text area
 bool EffectsEngine::isInTextArea(int x, int y) {
     if (isMenuPreviewMode) {
-        return display->isInTextArea(x, y, true, previewTextSize);
+        // During effect preview, only check the preview text area
+        // Don't block AM/PM area since no clock is being displayed
+        int x1, y1, x2, y2;
+        display->getMainTextBounds(x1, y1, x2, y2, previewTextSize);
+        return (x >= x1 && x <= x2 && y >= y1 && y <= y2);
     } else if (currentDisplayMode == SHOW_TIME_WITH_DATE) {
         // For time with date mode, check both time area and date area
         return display->isInTimeWithDateArea(x, y);
+    } else if (currentDisplayMode == SHOW_MESSAGES) {
+        // During message scrolling, be more permissive with effects
+        // Only avoid the actual message area (full width, proper height)
+        // Use the hardcoded message text size (always size 2)
+
+        int padding = 3;  // Same padding as message background
+
+        // Approximate the centered Y position (size 2 text is ~16 pixels high)
+        int textHeight = 16;  // Approximate height for size 2 text
+        int centeredY = (MATRIX_HEIGHT - textHeight) / 2;
+
+        int messageY = centeredY - padding;
+        int messageHeight = textHeight + (2 * padding);
+
+        // Block effects in the full-width message area
+        return (y >= messageY && y < messageY + messageHeight);
     } else {
         return display->isInTextArea(x, y, true);
     }
@@ -559,6 +579,9 @@ void EffectsEngine::updateFireworks() {
                 fireworks[i].active = true;
                 fireworks[i].exploded = false;
                 fireworks[i].startTime = currentTime;
+                // Set explosion height between 20% and 50% from the top (low y values)
+                fireworks[i].explosionHeight =
+                    random(MATRIX_HEIGHT * 20 / 100, MATRIX_HEIGHT * 50 / 100);
             }
         } else if (!fireworks[i].exploded) {
             // Rising phase - draw white rocket moving up
@@ -579,7 +602,9 @@ void EffectsEngine::updateFireworks() {
                 }
             } else {
                 // Draw rising white rocket
-                int rocketY = fireworks[i].y - (progress * (MATRIX_HEIGHT / 2));
+                // Calculate distance rocket needs to travel (from bottom to explosion height)
+                int travelDistance = fireworks[i].y - fireworks[i].explosionHeight;
+                int rocketY = fireworks[i].y - (progress * travelDistance);
                 if (rocketY >= 0 && rocketY < MATRIX_HEIGHT &&
                     !isInTextArea(fireworks[i].x, rocketY)) {
                     // White rocket trail
@@ -600,7 +625,7 @@ void EffectsEngine::updateFireworks() {
             } else {
                 // Draw explosion particles with more dramatic spread
                 float centerX = fireworks[i].x;
-                float centerY = fireworks[i].y - (MATRIX_HEIGHT / 2);
+                float centerY = fireworks[i].explosionHeight;
 
                 for (int j = 0; j < FIREWORK_PARTICLES; j++) {
                     // Increased spread speed and reduced gravity effect

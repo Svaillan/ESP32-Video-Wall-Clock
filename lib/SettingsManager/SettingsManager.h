@@ -5,18 +5,19 @@
 #include <EEPROM.h>
 
 // EEPROM Settings
-#define EEPROM_SIZE 128                 // Increased size for WiFi settings
-#define EEPROM_MAGIC 0x42               // Magic number to verify valid data
-#define EEPROM_ADDR_MAGIC 0             // Address for magic number
-#define EEPROM_ADDR_TEXT_SIZE 1         // Address for text size
-#define EEPROM_ADDR_BRIGHTNESS 2        // Address for brightness index
-#define EEPROM_ADDR_EFFECT_MODE 3       // Address for effect mode
-#define EEPROM_ADDR_TIME_FORMAT 4       // Address for time format (12/24 hour)
-#define EEPROM_ADDR_CLOCK_COLOR 5       // Address for clock color mode
-#define EEPROM_ADDR_WIFI_ENABLED 6      // Address for WiFi enabled flag
-#define EEPROM_ADDR_WIFI_SSID 7         // Address for WiFi SSID (32 bytes)
-#define EEPROM_ADDR_WIFI_PASSWORD 39    // Address for WiFi password (64 bytes)
-#define EEPROM_ADDR_TIMEZONE_INDEX 103  // Address for timezone index (1 byte)
+#define EEPROM_SIZE 128                       // Increased size for WiFi settings
+#define EEPROM_MAGIC 0x42                     // Magic number to verify valid data
+#define EEPROM_ADDR_MAGIC 0                   // Address for magic number
+#define EEPROM_ADDR_TEXT_SIZE 1               // Address for text size
+#define EEPROM_ADDR_BRIGHTNESS 2              // Address for brightness index
+#define EEPROM_ADDR_EFFECT_MODE 3             // Address for effect mode
+#define EEPROM_ADDR_TIME_FORMAT 4             // Address for time format (12/24 hour)
+#define EEPROM_ADDR_CLOCK_COLOR 5             // Address for clock color mode
+#define EEPROM_ADDR_WIFI_ENABLED 6            // Address for WiFi enabled flag
+#define EEPROM_ADDR_WIFI_SSID 7               // Address for WiFi SSID (32 bytes)
+#define EEPROM_ADDR_WIFI_PASSWORD 39          // Address for WiFi password (64 bytes)
+#define EEPROM_ADDR_TIMEZONE_INDEX 103        // Address for timezone index (1 byte)
+#define EEPROM_ADDR_MESSAGE_SCROLL_SPEED 104  // Address for message scroll speed (1 byte)
 
 // Constants
 #define TEXT_SIZE_MIN 1
@@ -54,6 +55,12 @@ enum ClockColorMode {
     CLOCK_RAINBOW
 };
 
+enum MessageScrollSpeed {
+    MSG_SCROLL_SLOW,    // 51ms (current normal)
+    MSG_SCROLL_MEDIUM,  // 34ms (current high priority)
+    MSG_SCROLL_FAST     // 25ms (new fastest)
+};
+
 class SettingsManager {
    public:
     // Constructor
@@ -81,6 +88,9 @@ class SettingsManager {
     int getTimezoneIndex() const {
         return timezoneIndex;
     }
+    MessageScrollSpeed getMessageScrollSpeed() const {
+        return messageScrollSpeed;
+    }
 
     // WiFi settings getters
     bool isWiFiEnabled() const {
@@ -105,6 +115,7 @@ class SettingsManager {
     void setUse24HourFormat(bool format);
     void setClockColorMode(ClockColorMode mode);
     void setTimezoneIndex(int index);
+    void setMessageScrollSpeed(MessageScrollSpeed speed);
 
     // WiFi settings setters
     void setWiFiEnabled(bool enabled);
@@ -122,6 +133,7 @@ class SettingsManager {
     bool use24HourFormat;
     ClockColorMode clockColorMode;
     int timezoneIndex;
+    MessageScrollSpeed messageScrollSpeed;
 
     // WiFi settings
     bool wifiEnabled;
@@ -136,6 +148,7 @@ class SettingsManager {
     bool isValidBrightnessIndex(int index) const;
     bool isValidEffectMode(int mode) const;
     bool isValidClockColorMode(int mode) const;
+    bool isValidMessageScrollSpeed(int speed) const;
 };
 
 #endif  // SETTINGS_MANAGER_H

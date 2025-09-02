@@ -111,6 +111,14 @@ class MatrixDisplayManager {
     // Utility functions
     float generateVelocity(float minSpeed, float maxSpeed, bool allowNegative = true);
 
+    // Message queue API (simple enqueue for scrolling messages)
+    void enqueueMessage(const char* id, const char* text, const char* priority);
+    void processMessageQueue();
+    bool hasQueuedMessages() const;
+    bool hasActiveHighPriorityMessage() const;
+    void cancelActiveMessage();
+    int getQueueCount() const;
+
     // Access to brightness arrays
     const uint16_t* getTextColors() const {
         return textColors;
@@ -120,6 +128,33 @@ class MatrixDisplayManager {
     }
 
    private:
+    // Message queue internals
+    struct MessageQueueItem {
+        String id;
+        String text;
+        String priority;
+    };
+
+    static const int MESSAGE_QUEUE_SIZE = 8;
+    MessageQueueItem messageQueue[MESSAGE_QUEUE_SIZE];
+    int mqHead;
+    int mqTail;
+    int mqCount;
+
+    // Active message state
+    bool hasActiveMessage;
+    String activeId;
+    String activeText;
+    String activePriority;
+    int activeTextSize;
+    int activeScrollX;
+    int activeScrollDir;
+    unsigned long activeStartTime;
+    unsigned long activeLastScroll;
+    unsigned long activeDuration;  // ms
+    int activeScrollSpeed;         // ms per step
+    uint16_t activeColor;
+
     Adafruit_Protomatter* matrix;
     SettingsManager* settings;
 
