@@ -38,6 +38,19 @@ A professional-grade, feature-rich digital clock display using an ESP32 microcon
 - **Fireworks**: Physics-based explosion animations
 - **Smart Masking**: Effects automatically avoid text areas
 
+### 📡 **Messaging System**
+
+- **HTTP API**: RESTful endpoint for sending scrolling messages
+- **Password Protection**: Configurable API authentication for security
+- **Priority Levels**: Normal, high, and urgent message priorities
+- **Queue Management**: Dual-queue system (6 pending + 8 display slots)
+- **Rate Limiting**: Configurable message frequency protection
+- **Memory Monitoring**: Automatic low-memory protection
+- **Length Validation**: Configurable maximum message length (500 chars)
+- **Real-time Display**: Smooth right-to-left scrolling with configurable speed
+- **High Priority Interruption**: Urgent messages interrupt current display
+- **Enter Key Cancellation**: Quick manual message dismissal
+
 ### 🧩 **Modular & Maintainable Architecture**
 
 - **Fully Modular Libraries**: All major features separated into reusable libraries (AppStateManager, ButtonManager, ClockDisplay, EffectsEngine, MatrixDisplayManager, MenuSystem, SettingsManager, SystemManager, TimeManager, WiFiManager, WiFiInfoDisplay)
@@ -158,7 +171,72 @@ For detailed development instructions, see [CONTRIBUTING.md](CONTRIBUTING.md).
 └── ⚙️ Set Time (Hour/Minute adjustment)
 ```
 
-## 📊 **Technical Specifications**
+## � **Messaging API**
+
+### **Configuration**
+
+Configure message API security in `credentials/message_config.h`:
+
+```cpp
+// Leave empty string "" to disable password protection
+#define MESSAGE_API_PASSWORD "your_secure_password"
+```
+
+### **Endpoints**
+
+#### **POST /messages** - Send a message
+
+```bash
+# With Bearer token authentication
+curl -X POST http://192.168.1.100/messages \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_secure_password" \
+  -d '{"text":"Hello World!","priority":"normal"}'
+
+# With query parameter authentication (fallback)
+curl -X POST "http://192.168.1.100/messages?password=your_secure_password" \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello World!","priority":"high"}'
+```
+
+**Priority Levels:**
+
+- `normal` - Standard message display
+- `high` - Interrupts current display
+- `urgent` - Interrupts current display
+
+#### **GET /status** - System status
+
+```bash
+curl -H "Authorization: Bearer your_secure_password" \
+  http://192.168.1.100/status
+```
+
+**Response:**
+
+```json
+{
+  "ip": "192.168.1.100",
+  "pending_queue": 0,
+  "pending_capacity": 6,
+  "display_queue": 1,
+  "display_capacity": 8,
+  "free_heap": 270548,
+  "rate_limit_ms": 500,
+  "max_message_length": 500,
+  "auth_required": true
+}
+```
+
+### **Security Features**
+
+- **Rate Limiting**: 500ms minimum between messages
+- **Length Validation**: 500 character maximum
+- **Memory Protection**: Low memory rejection (< 50KB free)
+- **Queue Management**: Overflow protection with HTTP 503 responses
+- **Authentication**: Bearer token or query parameter support
+
+## �📊 **Technical Specifications**
 
 ### **Performance**
 

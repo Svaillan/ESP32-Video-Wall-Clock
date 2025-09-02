@@ -17,7 +17,8 @@ SettingsManager::SettingsManager() {
     effectMode = EFFECT_CONFETTI;
     use24HourFormat = true;  // Default to 24-hour format
     clockColorMode = CLOCK_WHITE;
-    timezoneIndex = 0;  // Default to Arizona (index 0)
+    timezoneIndex = 0;                       // Default to Arizona (index 0)
+    messageScrollSpeed = MSG_SCROLL_MEDIUM;  // Default to medium speed
 
     // WiFi defaults
     wifiEnabled = false;
@@ -61,6 +62,12 @@ void SettingsManager::setTimezoneIndex(int index) {
     timezoneIndex = index;
 }
 
+void SettingsManager::setMessageScrollSpeed(MessageScrollSpeed speed) {
+    if (isValidMessageScrollSpeed((int)speed)) {
+        messageScrollSpeed = speed;
+    }
+}
+
 void SettingsManager::setWiFiEnabled(bool enabled) {
     wifiEnabled = enabled;
 }
@@ -83,6 +90,7 @@ void SettingsManager::saveSettings() {
     EEPROM.write(EEPROM_ADDR_TIME_FORMAT, use24HourFormat ? 1 : 0);
     EEPROM.write(EEPROM_ADDR_CLOCK_COLOR, (uint8_t)clockColorMode);
     EEPROM.write(EEPROM_ADDR_TIMEZONE_INDEX, (uint8_t)timezoneIndex);
+    EEPROM.write(EEPROM_ADDR_MESSAGE_SCROLL_SPEED, (uint8_t)messageScrollSpeed);
 
     // Save WiFi settings
     EEPROM.write(EEPROM_ADDR_WIFI_ENABLED, wifiEnabled ? 1 : 0);
@@ -123,6 +131,7 @@ void SettingsManager::loadSettings() {
         uint8_t savedTimeFormat = EEPROM.read(EEPROM_ADDR_TIME_FORMAT);
         uint8_t savedClockColor = EEPROM.read(EEPROM_ADDR_CLOCK_COLOR);
         uint8_t savedTimezoneIndex = EEPROM.read(EEPROM_ADDR_TIMEZONE_INDEX);
+        uint8_t savedMessageScrollSpeed = EEPROM.read(EEPROM_ADDR_MESSAGE_SCROLL_SPEED);
 
         // Validate ranges before applying
         if (isValidTextSize(savedTextSize)) {
@@ -144,6 +153,10 @@ void SettingsManager::loadSettings() {
         // Validate and load timezone index (0-23 for 24 timezones)
         if (savedTimezoneIndex < 24) {
             timezoneIndex = savedTimezoneIndex;
+        }
+
+        if (isValidMessageScrollSpeed(savedMessageScrollSpeed)) {
+            messageScrollSpeed = (MessageScrollSpeed)savedMessageScrollSpeed;
         }
 
         // Load WiFi settings
@@ -187,4 +200,8 @@ bool SettingsManager::isValidEffectMode(int mode) const {
 
 bool SettingsManager::isValidClockColorMode(int mode) const {
     return (mode >= CLOCK_WHITE && mode <= CLOCK_RAINBOW);
+}
+
+bool SettingsManager::isValidMessageScrollSpeed(int speed) const {
+    return (speed >= MSG_SCROLL_SLOW && speed <= MSG_SCROLL_FAST);
 }

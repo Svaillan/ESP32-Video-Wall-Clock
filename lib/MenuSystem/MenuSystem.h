@@ -36,6 +36,8 @@ class MenuSystem {
     static const int EFFECT_OPTIONS;
     static const char* clockColorNames[];
     static const int CLOCK_COLOR_OPTIONS;
+    static const char* messageScrollSpeedNames[];
+    static const int MESSAGE_SCROLL_SPEED_OPTIONS;
     static const char* timezoneNames[];
     static const int TIMEZONE_OPTIONS;
     static const int timezoneOffsets[];
@@ -47,6 +49,7 @@ class MenuSystem {
     int menuIndex;
     int effectMenuIndex;
     int clockColorMenuIndex;
+    int messageScrollSpeedMenuIndex;
     int timezoneMenuIndex;
 
     // Time setting state
@@ -94,6 +97,7 @@ class MenuSystem {
     void displayBrightnessMenu();
     void displayTimeFormatMenu();
     void displayClockColorMenu();
+    void displayMessageScrollSpeedMenu();
     void displayTimezoneMenu();
 
     // Specialized menus
@@ -109,6 +113,7 @@ class MenuSystem {
     void handleBrightnessInput();
     void handleTimeFormatInput();
     void handleClockColorInput();
+    void handleMessageScrollSpeedInput();
     void handleTimezoneInput();
 
     // Time setting functions
@@ -148,6 +153,7 @@ class MenuSystem {
     AppState getBrightnessMenuNextState();
     AppState getTimeFormatMenuNextState();
     AppState getClockColorMenuNextState();
+    AppState getMessageScrollSpeedMenuNextState();
     AppState getTimezoneMenuNextState();
     AppState getTimeSettingNextState();
 

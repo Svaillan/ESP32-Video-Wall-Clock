@@ -46,6 +46,7 @@ Thumbs.db
 
 # Credentials and sensitive configuration
 credentials/ota_config.h
+credentials/message_config.h
 credentials/*.ini
 !credentials/*.ini.example
 !credentials/*.h.example

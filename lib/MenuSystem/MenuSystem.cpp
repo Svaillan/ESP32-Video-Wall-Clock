@@ -3,9 +3,9 @@
 #include <time.h>
 
 // Static menu data
-const char* MenuSystem::menuItems[] = {"Text Size",  "Brightness", "Time Format", "Clock Color",
-                                       "Effects",    "Timezone",   "Set Clock",   "Sync NTP",
-                                       "WiFi Setup", "OTA Setup",  "Exit"};
+const char* MenuSystem::menuItems[] = {"Text Size", "Brightness", "Time Format", "Clock Color",
+                                       "Msg Speed", "Effects",    "Timezone",    "Set Clock",
+                                       "Sync NTP",  "WiFi Setup", "OTA Setup",   "Exit"};
 const int MenuSystem::MENU_ITEMS = sizeof(menuItems) / sizeof(menuItems[0]);
 const char* MenuSystem::effectNames[] = {"Confetti", "Acid",      "Rain", "Torrent", "Stars",
                                          "Sparkles", "Fireworks", "Tron", "Off"};
@@ -14,6 +14,9 @@ const char* MenuSystem::clockColorNames[] = {
     "White",  "Red",  "Green", "Blue", "Yellow", "Cyan", "Magenta", "Orange",
     "Purple", "Pink", "Lime",  "Teal", "Indigo", "Gold", "Silver",  "Rainbow"};
 const int MenuSystem::CLOCK_COLOR_OPTIONS = sizeof(clockColorNames) / sizeof(clockColorNames[0]);
+const char* MenuSystem::messageScrollSpeedNames[] = {"Slow", "Medium", "Fast"};
+const int MenuSystem::MESSAGE_SCROLL_SPEED_OPTIONS =
+    sizeof(messageScrollSpeedNames) / sizeof(messageScrollSpeedNames[0]);
 const char* MenuSystem::timezoneNames[] = {
     "Arizona", "Hawaii",       "Alaska",  "Pacific", "Mountain", "Central", "Eastern", "Atlantic",
     "Brazil",  "Newfoundland", "UTC",     "London",  "Paris",    "Cairo",   "Moscow",  "Dubai",
@@ -53,6 +56,7 @@ MenuSystem::MenuSystem(MatrixDisplayManager* displayManager, SettingsManager* se
       menuIndex(0),
       effectMenuIndex(0),
       clockColorMenuIndex(0),
+      messageScrollSpeedMenuIndex(0),
       timezoneMenuIndex(0),
       setHour(0),
       setMin(0),
@@ -101,27 +105,33 @@ void MenuSystem::handleMenuEntry() {
         if (!buttons->isEnterPressed())
             blockMenuReentry = false;
     } else {
-        // Use justPressed logic for consistency with menu navigation
+        // Start timing when enter button is first pressed
         if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating()) {
             enterPressTime = millis();
             wasPressed = true;
-            blockMenuReentry = true;  // Prevent immediate re-entry
+        }
+
+        // Reset if button is released before 2 seconds
+        if (wasPressed && !buttons->isEnterPressed()) {
+            wasPressed = false;
+            enterPressTime = 0;
         }
     }
 }
 
 bool MenuSystem::shouldEnterMenu() {
-    // Check if we have a recent press recorded and not blocked
-    if (blockMenuReentry || !wasPressed || enterPressTime == 0) {
+    if (blockMenuReentry)
         return false;
-    }
 
-    // Menu entry should happen immediately after the press is detected
-    // Add a small debounce to prevent multiple rapid entries
-    uint32_t timeSincePress = millis() - enterPressTime;
-    if (timeSincePress > 50) {  // Small debounce period
-        wasPressed = false;     // Reset the press flag
-        return true;
+    // Require button to be held for 2 seconds continuously
+    if (wasPressed && buttons->isEnterPressed()) {
+        if (millis() - enterPressTime >= 2000) {
+            // Button has been held for 2 seconds - enter menu
+            blockMenuReentry = true;
+            wasPressed = false;
+            enterPressTime = 0;
+            return true;
+        }
     }
 
     return false;
@@ -174,25 +184,29 @@ void MenuSystem::displayMainMenu() {
         case 3:  // Clock Color
             // No value to display
             break;
-        case 4:  // Effects
+        case 4:  // Msg Speed
+            sprintf(menuLine + strlen(menuLine), " (%s)",
+                    messageScrollSpeedNames[settings->getMessageScrollSpeed()]);
+            break;
+        case 5:  // Effects
             sprintf(menuLine + strlen(menuLine), " (%s)", effectNames[settings->getEffectMode()]);
             break;
-        case 5:  // Timezone
+        case 6:  // Timezone
             // No value to display
             break;
-        case 6:  // Set Clock
+        case 7:  // Set Clock
             // No value to display
             break;
-        case 7:  // Sync NTP
+        case 8:  // Sync NTP
             // No value to display
             break;
-        case 8:  // WiFi Setup
+        case 9:  // WiFi Setup
             // No value to display
             break;
-        case 9:  // OTA Setup
+        case 10:  // OTA Setup
             // No value to display
             break;
-        case 10:  // Exit
+        case 11:  // Exit
             // No value to display
             break;
     }
@@ -224,14 +238,18 @@ void MenuSystem::handleMainMenuInput() {
                 // Will transition to EDIT_CLOCK_COLOR in main code
                 break;
             case 4:
+                messageScrollSpeedMenuIndex = settings->getMessageScrollSpeed();
+                // Will transition to EDIT_MESSAGE_SCROLL_SPEED in main code
+                break;
+            case 5:
                 effectMenuIndex = settings->getEffectMode();
                 // Will transition to EDIT_EFFECTS in main code
                 break;
-            case 5:                                                // Timezone
+            case 6:                                                // Timezone
                 timezoneMenuIndex = settings->getTimezoneIndex();  // Start with saved timezone
                 // Will transition to EDIT_TIMEZONE in main code
                 break;
-            case 6:  // Set Clock
+            case 7:  // Set Clock
             {
                 DateTime now = rtc->now();
                 setHour = now.hour();
@@ -243,7 +261,7 @@ void MenuSystem::handleMainMenuInput() {
                 lastEnterPress = 0;
                 entryLockProcessed = false;
             } break;
-            case 7:  // Sync NTP
+            case 8:  // Sync NTP
             {
                 // Check WiFi connectivity first
                 if (!wifi || !wifi->isConnected()) {
@@ -260,13 +278,13 @@ void MenuSystem::handleMainMenuInput() {
                 ntpSyncStartTime = millis();
                 break;
             }
-            case 8:  // WiFi Setup
+            case 9:  // WiFi Setup
                 // Will transition to WIFI_MENU in main code
                 break;
-            case 9:  // OTA Setup
+            case 10:  // OTA Setup
                 // Will transition to OTA_MENU in main code
                 break;
-            case 10:  // Exit
+            case 11:  // Exit
                 // Will transition to SHOW_TIME in main code
                 break;
         }
@@ -285,18 +303,20 @@ AppState MenuSystem::getNextState() {
             case 3:
                 return EDIT_CLOCK_COLOR;
             case 4:
-                return EDIT_EFFECTS;
+                return EDIT_MESSAGE_SCROLL_SPEED;
             case 5:
-                return EDIT_TIMEZONE;
+                return EDIT_EFFECTS;
             case 6:
-                return TIME_SET;
+                return EDIT_TIMEZONE;
             case 7:
-                return SYNC_NTP;
+                return TIME_SET;
             case 8:
-                return WIFI_MENU;
+                return SYNC_NTP;
             case 9:
-                return OTA_MENU;
+                return WIFI_MENU;
             case 10:
+                return OTA_MENU;
+            case 11:
                 // Exiting to previous screen - reset menu entry state
                 blockMenuReentry = true;
                 wasPressed = false;
@@ -320,7 +340,10 @@ void MenuSystem::displayEffectsMenu() {
     // Render the preview effect
     if (settings->getEffectMode() != EFFECT_OFF) {
         effects->updateEffects();
-        display->drawTextBackground(1);  // Draw background for text size 1
+        // Draw background only for main text area (not AM/PM) during preview
+        int x1, y1, x2, y2;
+        display->getMainTextBounds(x1, y1, x2, y2, 1);
+        display->fillRect(x1, y1, x2 - x1 + 1, y2 - y1 + 1, 0x0000);
     } else {
         // Clear screen for "off" effect
         display->fillScreen(0);
@@ -488,6 +511,26 @@ void MenuSystem::displayClockColorMenu() {
     settings->setClockColorMode(tempMode);
 }
 
+void MenuSystem::displayMessageScrollSpeedMenu() {
+    // Display title
+    display->drawCenteredText("Msg Speed", 1, display->applyBrightness(0xFFE0), 6);  // Yellow
+
+    // Show speed setting with visual indicator
+    String speedText = String(messageScrollSpeedNames[messageScrollSpeedMenuIndex]);
+
+    // Add visual speed indicator
+    if (messageScrollSpeedMenuIndex == 0) {  // Slow
+        speedText += " <<<";
+    } else if (messageScrollSpeedMenuIndex == 1) {  // Medium
+        speedText += " <<";
+    } else {  // Fast
+        speedText += " <";
+    }
+
+    display->drawCenteredTextWithBox(speedText.c_str(), 1, display->applyBrightness(0xF81F), 0x0000,
+                                     MATRIX_HEIGHT - 9);  // Purple with black box
+}
+
 void MenuSystem::handleClockColorInput() {
     bool settingsChanged = false;
 
@@ -516,6 +559,39 @@ AppState MenuSystem::getClockColorMenuNextState() {
         return MENU;
     }
     return EDIT_CLOCK_COLOR;  // Stay in clock color menu
+}
+
+void MenuSystem::handleMessageScrollSpeedInput() {
+    bool settingsChanged = false;
+
+    if (buttons->isDownJustPressed()) {
+        messageScrollSpeedMenuIndex =
+            (messageScrollSpeedMenuIndex + 1) % MESSAGE_SCROLL_SPEED_OPTIONS;
+        settingsChanged = true;
+    }
+    if (buttons->isUpJustPressed()) {
+        messageScrollSpeedMenuIndex =
+            (messageScrollSpeedMenuIndex - 1 + MESSAGE_SCROLL_SPEED_OPTIONS) %
+            MESSAGE_SCROLL_SPEED_OPTIONS;
+        settingsChanged = true;
+    }
+    if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating()) {
+        settings->setMessageScrollSpeed((MessageScrollSpeed)messageScrollSpeedMenuIndex);
+        settings->saveSettings();
+        // Will transition back to MENU in main code
+    }
+
+    // Update the preview immediately
+    if (settingsChanged) {
+        // No need to save here since we only save on ENTER
+    }
+}
+
+AppState MenuSystem::getMessageScrollSpeedMenuNextState() {
+    if (buttons->isEnterJustPressed() && !buttons->isEnterRepeating()) {
+        return MENU;
+    }
+    return EDIT_MESSAGE_SCROLL_SPEED;  // Stay in message scroll speed menu
 }
 
 void MenuSystem::displayTimezoneMenu() {
@@ -714,6 +790,7 @@ void MenuSystem::handleInput(AppState& appState) {
         case SHOW_TIME:
         case SHOW_TIME_WITH_DATE:
         case SHOW_WIFI_INFO:
+        case SHOW_MESSAGES:
             handleMenuEntry();
             if (shouldEnterMenu()) {
                 previousState = appState;  // Remember which screen we came from
@@ -748,6 +825,11 @@ void MenuSystem::handleInput(AppState& appState) {
         case EDIT_CLOCK_COLOR:
             handleClockColorInput();
             appState = getClockColorMenuNextState();
+            break;
+
+        case EDIT_MESSAGE_SCROLL_SPEED:
+            handleMessageScrollSpeedInput();
+            appState = getMessageScrollSpeedMenuNextState();
             break;
 
         case EDIT_EFFECTS:
@@ -861,6 +943,12 @@ void MenuSystem::updateDisplay(AppState appState) {
         case EDIT_CLOCK_COLOR:
             buttons->setAllowButtonRepeat(false);  // Disable repeating for clock color menu
             displayClockColorMenu();
+            break;
+
+        case EDIT_MESSAGE_SCROLL_SPEED:
+            buttons->setAllowButtonRepeat(
+                false);  // Disable repeating for message scroll speed menu
+            displayMessageScrollSpeedMenu();
             break;
 
         case EDIT_EFFECTS:

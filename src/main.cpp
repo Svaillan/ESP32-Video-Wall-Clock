@@ -12,6 +12,7 @@
 #include "EffectsEngine.h"
 #include "MatrixDisplayManager.h"
 #include "MenuSystem.h"
+#include "MessageClient.h"
 #include "SettingsManager.h"
 #include "SystemManager.h"
 #include "TimeManager.h"
@@ -59,6 +60,9 @@ WiFiInfoDisplay wifiInfoDisplay(&display, &wifiManager, &settings);
 AppStateManager appManager(&buttons, &settings, &display, &effects, &menu, &clockDisplay,
                            &wifiInfoDisplay);
 
+// Message client
+MessageClient messageClient(&settings, &display);
+
 // State Variables
 unsigned long systemStartTime = 0;
 const uint32_t STARTUP_GRACE_PERIOD = 2000;  // 2 seconds to stabilize
@@ -73,6 +77,7 @@ SystemManager systemManager(&matrix, &rtc, &settings, &buttons, &display, &timeM
  */
 void setup() {
     systemManager.initializeSystem();
+    messageClient.begin();
 }
 
 void loop() {
@@ -98,6 +103,10 @@ void loop() {
     systemManager.handleNTPSync(&menu);
 
     appManager.updateDisplay();
-    effects.updateEffects();  // Render background effects
+    // Only render effects here if not in message mode (message mode handles its own effects)
+    if (appManager.getCurrentState() != SHOW_MESSAGES) {
+        effects.updateEffects();  // Render background effects
+    }
+    messageClient.loop();
     appManager.processDelay();
 }
