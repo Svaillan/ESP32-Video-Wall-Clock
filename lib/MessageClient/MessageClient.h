@@ -9,8 +9,15 @@
 #include "MatrixDisplayManager.h"
 #include "SettingsManager.h"
 
-// Include message API credentials
+// Try to include local message API config, use default if not available
+#if __has_include("../../credentials/message_config.h")
 #include "../../credentials/message_config.h"
+#endif
+
+// Fallback password if no config file
+#ifndef MESSAGE_API_PASSWORD
+#define MESSAGE_API_PASSWORD "defaultMessage"
+#endif
 
 struct MessageItem {
     String id;
